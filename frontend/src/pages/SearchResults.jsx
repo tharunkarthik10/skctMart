@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PRODUCTS } from '../data/products';
 import { BottomNav } from '../components/BottomNav';
+import apiClient from '../api/client';
 
 export const SearchResults = () => {
   const location = useLocation();
@@ -12,8 +13,44 @@ export const SearchResults = () => {
   const categoryFilter = queryParams.get('category') || '';
   const typeFilter = queryParams.get('type') || ''; // 'recent' or 'auction'
 
+  const [allProducts, setAllProducts] = useState(PRODUCTS);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true);
+        const compRes = await apiClient.get('/components').catch(() => ({ data: [] }));
+        
+        const mappedComponents = (compRes.data || []).map(comp => ({
+          id: comp.id,
+          name: comp.title || comp.name,
+          price: typeof comp.price === 'number' ? `₹${comp.price}` : comp.price,
+          originalPrice: `₹${(comp.price || 0) + 200}`,
+          condition: comp.condition || 'Used',
+          status: comp.status === 'ACTIVE' || comp.availability === 'In Stock' || comp.availability === 'Available' ? 'Available' : 'Sold',
+          rating: '5.0',
+          college: 'SKCT',
+          time: 'Just now',
+          description: comp.why_sell || comp.tech_specs || comp.description || '',
+          category: comp.category,
+          isAuction: comp.listing_type === 'AUCTION' || comp.isAuction === true,
+          images: comp.images?.length > 0 ? comp.images : (comp.image ? [comp.image] : ['https://picsum.photos/800/800?random=99']),
+          image: comp.image_url || (comp.images?.length > 0 ? comp.images[0] : (comp.image || 'https://picsum.photos/800/800?random=99'))
+        }));
+        
+        setAllProducts([...mappedComponents, ...PRODUCTS]);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((product) => {
+    return allProducts.filter((product) => {
       let match = true;
 
       // Filter by Search Query
@@ -29,7 +66,10 @@ export const SearchResults = () => {
 
       // Filter by Category
       if (categoryFilter && match) {
-        if (product.category !== categoryFilter) {
+        const catFilterLow = categoryFilter.toLowerCase();
+        const prodCatLow = (product.category || '').toLowerCase();
+        
+        if (!catFilterLow.includes(prodCatLow) && !prodCatLow.includes(catFilterLow)) {
           match = false;
         }
       }
@@ -42,7 +82,7 @@ export const SearchResults = () => {
 
       return match;
     });
-  }, [searchQuery, categoryFilter, typeFilter]);
+  }, [allProducts, searchQuery, categoryFilter, typeFilter]);
 
   const getPageTitle = () => {
     if (searchQuery) return `Search Results for "${searchQuery}"`;
@@ -65,11 +105,16 @@ export const SearchResults = () => {
       <main className="w-full px-4 md:px-8 py-6">
         <div className="mb-6 flex items-center justify-between">
           <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
-            Showing {filteredProducts.length} items
+            Showing {isLoading ? '...' : filteredProducts.length} items
           </span>
         </div>
 
-        {filteredProducts.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-[var(--color-text-secondary)]">
+            <span className="material-symbols-outlined text-4xl animate-spin text-[var(--color-primary)]">progress_activity</span>
+            <span className="mt-4 font-semibold text-sm">Searching...</span>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
             <div className="w-20 h-20 bg-[var(--color-surface)] rounded-full flex items-center justify-center border border-[var(--color-border)]">
               <span className="material-symbols-outlined text-4xl text-[var(--color-text-secondary)]">search_off</span>

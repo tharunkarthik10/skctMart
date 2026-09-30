@@ -787,7 +787,7 @@ export const Inbox = () => {
                               }}
                             >
                               {/* Content check if image url */}
-                              {msg.content.startsWith('http') && (msg.content.includes('r2.dev') || msg.content.includes('r2.cloudflarestorage.com') || msg.content.includes('cloudinary')) ? (
+                              {msg.content.startsWith('http') && (msg.content.includes('r2.dev') || msg.content.includes('r2.cloudflarestorage.com')) ? (
                                 <div className="rounded-lg overflow-hidden border border-[var(--color-border)] bg-black/5 mb-1 max-w-full">
                                   <img 
                                     src={getPremiumImageUrl(msg.content)} 

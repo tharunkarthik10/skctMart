@@ -20,7 +20,7 @@ export const PublicProfile = () => {
       const currentUserDomain = user?.email?.split('@')[1];
 
       // Fetch current user's admin status
-      let isAdmin = user?.email === 'tharunkarthikav21@gmail.com';
+      let isAdmin = user?.email === '727824tuio046@skct.edu.in';
       if (user && !isAdmin) {
         try {
           const res = await apiClient.get(`/users/${user.id}`);

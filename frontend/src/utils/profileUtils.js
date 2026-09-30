@@ -1,6 +1,6 @@
 export const isProfileComplete = (profile) => {
   if (!profile) return false;
-  if (profile.is_admin || profile.role === 'Admin' || profile.email === 'tharunkarthikav21@gmail.com') return true;
+  if (profile.is_admin || profile.role === 'Admin' || profile.email === '727824tuio046@skct.edu.in') return true;
   
   let pending = {};
   if (profile.pending_profile_updates) {

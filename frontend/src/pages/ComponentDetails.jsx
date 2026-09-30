@@ -14,6 +14,12 @@ export const ComponentDetails = () => {
   const [activeImage, setActiveImage] = useState(null);
   const [error, setError] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [isBidModalOpen, setIsBidModalOpen] = useState(false);
+  const [bidAmount, setBidAmount] = useState('');
+  const [highestBid, setHighestBid] = useState(0);
+  const [bidSuccess, setBidSuccess] = useState(false);
+  const [bidHistory, setBidHistory] = useState([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -96,6 +102,9 @@ export const ComponentDetails = () => {
         setCurrentProduct(mappedProduct);
         setActiveImage(mappedProduct.images[0]);
         setRelatedProducts(related);
+
+        const storedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        setIsInWishlist(storedWishlist.some(item => String(item.id) === String(mappedProduct.id)));
       } catch (err) {
         console.error("Error fetching product details:", err);
         setError(err);
@@ -106,6 +115,52 @@ export const ComponentDetails = () => {
     
     fetchProduct();
   }, [id]);
+
+  const toggleWishlist = () => {
+    if (!currentProduct) return;
+    const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+    if (isInWishlist) {
+      const newWishlist = stored.filter(item => String(item.id) !== String(currentProduct.id));
+      localStorage.setItem('wishlist', JSON.stringify(newWishlist));
+      setIsInWishlist(false);
+    } else {
+      stored.push({
+        id: currentProduct.id,
+        name: currentProduct.name,
+        price: currentProduct.price,
+        image: currentProduct.image,
+        condition: currentProduct.condition
+      });
+      localStorage.setItem('wishlist', JSON.stringify(stored));
+      setIsInWishlist(true);
+    }
+    window.dispatchEvent(new Event('wishlistUpdate'));
+  };
+
+  const handleShare = async () => {
+    if (!currentProduct) return;
+    const shareData = {
+      title: `MakerMart - ${currentProduct.name}`,
+      text: `Check out ${currentProduct.name} for ${currentProduct.price} on MakerMart!`,
+      url: window.location.href
+    };
+    
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log("Error sharing:", err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        alert("Product link copied to clipboard!");
+      } catch (err) {
+        console.error("Failed to copy:", err);
+        alert("Failed to copy link.");
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -145,10 +200,12 @@ export const ComponentDetails = () => {
           <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">MakerMart</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn-icon">
-            <span className="material-symbols-outlined">favorite</span>
+          <button className="btn-icon" onClick={() => navigate('/wishlist')}>
+            <span className="material-symbols-outlined text-[var(--color-danger)]">
+              {isInWishlist ? 'favorite' : 'favorite_border'}
+            </span>
           </button>
-          <button className="btn-icon">
+          <button className="btn-icon" onClick={handleShare}>
             <span className="material-symbols-outlined">share</span>
           </button>
         </div>
@@ -274,7 +331,7 @@ export const ComponentDetails = () => {
 
               {/* Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                {DUMMY_PRODUCT.isAuction ? (
+                {currentProduct.isAuction ? (
                   <button 
                     onClick={async () => {
                       const { data: { user } } = await supabase.auth.getUser();
@@ -288,7 +345,24 @@ export const ComponentDetails = () => {
                           alert("Your profile is pending admin verification. You can only join auctions after verification.");
                           return;
                         }
-                        alert("Successfully joined the auction!");
+                        const currentPrice = parseInt(String(currentProduct.price).replace(/[^0-9]/g, ''), 10) || 0;
+                        try {
+                          const { data: bids } = await apiClient.get(`/components/${currentProduct.id}/bids`);
+                          if (bids && bids.length > 0) {
+                            setHighestBid(bids[0].amount);
+                            setBidAmount((bids[0].amount + 10).toString());
+                            setBidHistory(bids);
+                          } else {
+                            setHighestBid(currentPrice);
+                            setBidAmount((currentPrice + 10).toString());
+                            setBidHistory([]);
+                          }
+                        } catch (e) {
+                          setHighestBid(currentPrice);
+                          setBidAmount((currentPrice + 10).toString());
+                        }
+                        setBidSuccess(false);
+                        setIsBidModalOpen(true);
                       } catch (err) {
                         console.error("Error checking verification:", err);
                       }
@@ -312,7 +386,7 @@ export const ComponentDetails = () => {
                           alert("Your profile is pending admin verification. You can only buy after verification.");
                           return;
                         }
-                        navigate(`/checkout/${DUMMY_PRODUCT.id}`);
+                        navigate(`/checkout/${currentProduct.id}`);
                       } catch (err) {
                         console.error("Error checking verification:", err);
                       }
@@ -360,13 +434,9 @@ export const ComponentDetails = () => {
                   <span className="material-symbols-outlined text-[20px]">chat</span>
                   Chat with Seller
                 </button>
-                <button onClick={(e) => {
-                  e.currentTarget.classList.toggle('text-[var(--color-danger)]');
-                  e.currentTarget.querySelector('span').style.fontVariationSettings = "'FILL' 1";
-                  alert("Added to Wishlist!");
-                }} className="btn-secondary py-3.5 group">
-                  <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">favorite</span>
-                  Add to Wishlist
+                <button onClick={toggleWishlist} className={`btn-secondary py-3.5 group ${isInWishlist ? 'text-[var(--color-danger)] border-[var(--color-danger)]' : ''}`}>
+                  <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform" style={isInWishlist ? {fontVariationSettings: "'FILL' 1"} : {}}>favorite</span>
+                  {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}
                 </button>
               </div>
 
@@ -377,7 +447,7 @@ export const ComponentDetails = () => {
           <section className="mt-16 pt-8 border-t border-[var(--color-border)]">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-h2">Related Products</h2>
-              <button className="text-[var(--color-primary)] font-bold hover:underline flex items-center gap-1 group bg-[var(--color-primary)]/5 px-4 py-2 rounded-full transition-colors hover:bg-[var(--color-primary)]/10">
+              <button onClick={() => navigate(currentProduct?.category ? `/products?category=${currentProduct.category}` : '/products')} className="text-[var(--color-primary)] font-bold hover:underline flex items-center gap-1 group bg-[var(--color-primary)]/5 px-4 py-2 rounded-full transition-colors hover:bg-[var(--color-primary)]/10">
                 View All 
                 <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
               </button>
@@ -410,6 +480,111 @@ export const ComponentDetails = () => {
           </section>
         </div>
       </main>
+
+      {/* Bid Modal */}
+      {isBidModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsBidModalOpen(false)}></div>
+          <div className="relative z-10 w-[90vw] max-w-[450px] bg-[var(--color-surface)] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="p-5 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-warning)] text-[var(--color-primary-dark)]">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined">gavel</span>
+                Live Auction Room
+              </h2>
+              <button onClick={() => setIsBidModalOpen(false)} className="p-1 hover:bg-black/10 rounded-full transition-colors flex">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-6">
+              {bidSuccess ? (
+                <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
+                  <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-2 shadow-inner">
+                    <span className="material-symbols-outlined text-5xl">verified</span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-[var(--color-text-primary)]">Bid Placed Successfully!</h3>
+                  <p className="text-[var(--color-text-secondary)] text-lg">You are currently the highest bidder with <br/><span className="font-black text-2xl text-[var(--color-primary-dark)] mt-2 inline-block">₹{highestBid}</span></p>
+                  <button onClick={() => setIsBidModalOpen(false)} className="btn-primary w-full mt-6">Continue Browsing</button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-background)]">
+                    <img src={currentProduct?.image} alt={currentProduct?.name} className="w-16 h-16 object-cover rounded-xl shadow-sm" />
+                    <div>
+                      <h4 className="font-bold text-[var(--color-text-primary)] text-lg line-clamp-1">{currentProduct?.name}</h4>
+                      <div className="text-sm font-bold text-[var(--color-warning-dark)] flex items-center gap-1 mt-1 bg-[var(--color-warning)]/20 w-fit px-2 py-0.5 rounded-md">
+                        <span className="material-symbols-outlined text-[16px]">timer</span>
+                        Ends in 2d 14h
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center py-4 bg-[var(--color-background)] rounded-2xl border border-[var(--color-border)] relative">
+                    <div className="text-sm font-bold text-[var(--color-text-secondary)] uppercase tracking-wider mb-2">Current Highest Bid</div>
+                    <div className="text-5xl font-black text-[var(--color-primary-dark)]">₹{highestBid}</div>
+                    {bidHistory.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-[var(--color-border)] text-left px-4">
+                        <div className="text-xs font-bold text-[var(--color-text-secondary)] mb-2 uppercase">Recent Bids</div>
+                        <div className="max-h-24 overflow-y-auto pr-2 flex flex-col gap-2 custom-scrollbar">
+                          {bidHistory.map((b, i) => (
+                            <div key={b.id || i} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <img src={b.bidder?.avatar_url || 'https://i.pravatar.cc/150?u=' + (b.bidder_id || '1')} className="w-6 h-6 rounded-full" />
+                                <span className="font-medium truncate max-w-[120px]">{b.bidder?.name || 'User'}</span>
+                              </div>
+                              <span className="font-bold text-[var(--color-primary-dark)]">₹{b.amount}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-[var(--color-text-secondary)] mb-2">Your Bid Amount (₹)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[var(--color-text-secondary)] text-xl">₹</span>
+                      <input 
+                        type="number" 
+                        value={bidAmount}
+                        onChange={(e) => setBidAmount(e.target.value)}
+                        className="w-full bg-[var(--color-background)] border-2 border-[var(--color-border)] rounded-xl py-4 pl-12 pr-4 font-black text-2xl focus:border-[var(--color-primary)] focus:outline-none transition-colors shadow-inner"
+                        placeholder={(highestBid + 10).toString()}
+                        min={highestBid + 10}
+                      />
+                    </div>
+                    <p className="text-xs font-medium text-[var(--color-text-secondary)] mt-2 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">info</span>
+                      Minimum bid increment is ₹10
+                    </p>
+                  </div>
+                  
+                  <button 
+                    onClick={async () => {
+                      const amount = parseInt(bidAmount, 10);
+                      if (amount > highestBid) {
+                        try {
+                          const res = await apiClient.post(`/components/${currentProduct.id}/bids`, { amount });
+                          setHighestBid(amount);
+                          setBidSuccess(true);
+                          setBidHistory([res.data, ...bidHistory]); // Add new bid to history
+                        } catch (err) {
+                          alert("Failed to place bid. Please try again.");
+                        }
+                      } else {
+                        alert(`Bid must be higher than current highest bid (₹${highestBid})`);
+                      }
+                    }}
+                    className="btn-auction w-full py-4 text-xl mt-2 shadow-lg"
+                  >
+                    Place Bid
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

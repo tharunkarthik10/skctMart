@@ -52,3 +52,21 @@ export const deleteComponent = async (id) => {
         where: { id },
     });
 };
+
+export const getComponentBids = async (id) => {
+    return await prisma.bid.findMany({
+        where: { component_id: id },
+        orderBy: { amount: 'desc' },
+        include: { bidder: { select: { id: true, name: true, avatar_url: true } } }
+    });
+};
+
+export const placeBid = async (id, bidder_id, amount) => {
+    return await prisma.bid.create({
+        data: {
+            amount: parseFloat(amount),
+            bidder_id,
+            component_id: id
+        }
+    });
+};

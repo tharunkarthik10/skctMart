@@ -22,7 +22,7 @@ export const initSocket = (server) => {
                 const isAdmin = extractedId === 'admin-001' || extractedId === 'admin-user-001';
                 user = {
                     id: extractedId || '87650734-b92a-4465-b397-325f392c0267',
-                    email: isAdmin ? 'tharunkarthikav21@gmail.com' : '727824tuio032@skct.edu.in',
+                    email: isAdmin ? '727824tuio046@skct.edu.in' : '727824tuio032@skct.edu.in',
                     is_admin: isAdmin
                 };
             } else if (token === 'demo_token') {
@@ -55,7 +55,7 @@ export const initSocket = (server) => {
         const userId = socket.user.id;
         socket.join(userId);
 
-        const isAdmin = socket.user.email === 'tharunkarthikav21@gmail.com' || socket.user.is_admin;
+        const isAdmin = socket.user.email === '727824tuio046@skct.edu.in' || socket.user.is_admin;
         if (isAdmin) {
             socket.join('admin');
         }

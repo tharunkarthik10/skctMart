@@ -23,7 +23,7 @@ export const Login = () => {
     setLoading(true);
     setError(null);
 
-    const isAdminEmail = email === 'tharunkarthikav21@gmail.com';
+    const isAdminEmail = email === '727824tuio046@skct.edu.in';
     const isCollegeEmail = email.endsWith('.edu') || email.endsWith('.edu.in') || isAdminEmail;
     if (!isCollegeEmail) {
       setError('Only college domains (like @skct.edu.in or .edu) or Admin emails are allowed.');
@@ -47,7 +47,7 @@ export const Login = () => {
         const demoSession = {
           user: {
             id: 'admin-user-001',
-            email: 'tharunkarthikav21@gmail.com',
+            email: '727824tuio046@skct.edu.in',
             user_metadata: { name: 'Admin' }
           }
         };
@@ -88,8 +88,8 @@ export const Login = () => {
   };
 
   const handleDemoLogin = () => {
-    const isAdmin = email === 'tharunkarthikav21@gmail.com';
-    const userEmail = isAdmin ? 'tharunkarthikav21@gmail.com' : (email || '727824tuio032@skct.edu.in');
+    const isAdmin = email === '727824tuio046@skct.edu.in';
+    const userEmail = isAdmin ? '727824tuio046@skct.edu.in' : (email || '727824tuio032@skct.edu.in');
     const userId = isAdmin ? 'admin-user-001' : '87650734-b92a-4465-b397-325f392c0267';
     
     const demoSession = {

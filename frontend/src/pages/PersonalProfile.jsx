@@ -227,7 +227,7 @@ export const PersonalProfile = () => {
 
     try {
       const res = await apiClient.put(`/users/${targetId}`, updates).catch(async (err) => {
-        const fetchRes = await fetch(`http://localhost:5001/api/users/${targetId}`, {
+        const fetchRes = await fetch(`http://localhost:5000/api/users/${targetId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -488,7 +488,7 @@ export const PersonalProfile = () => {
             </div>
             
             <div className="flex flex-col gap-3">
-              {(userData?.is_admin || authEmail === 'tharunkarthikav21@gmail.com') && (
+              {(userData?.is_admin || authEmail === '727824tuio046@skct.edu.in') && (
                 <button onClick={() => navigate('/admin')} className="btn-secondary text-[var(--color-primary)]">
                   <span className="material-symbols-outlined">admin_panel_settings</span>
                   Admin Portal

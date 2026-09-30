@@ -62,7 +62,7 @@ export const ListComponent = () => {
         return;
       }
 
-      const isAdminUser = profile?.is_admin || profile?.role === 'Admin' || user?.email === 'tharunkarthikav21@gmail.com';
+      const isAdminUser = profile?.is_admin || profile?.role === 'Admin' || user?.email === '727824tuio046@skct.edu.in';
       if (!isAdminUser && !profile?.is_profile_verified && !profile?.pending_profile_updates) {
         alert('Your profile details are pending admin verification. You can only list components once verified.');
         navigate('/profile');
@@ -283,6 +283,7 @@ export const ListComponent = () => {
                     </div>
                     <div className="relative">
                       <select className="input-standard appearance-none bg-none pr-10" value={formData.auctionDuration} onChange={e => setFormData({...formData, auctionDuration: e.target.value})}>
+                        <option>1 Day</option>
                         <option>3 Days</option>
                         <option>5 Days</option>
                         <option>7 Days</option>

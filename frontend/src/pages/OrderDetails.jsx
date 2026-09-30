@@ -18,7 +18,7 @@ export const OrderDetails = () => {
           return;
         }
 
-        const res = await fetch(`http://localhost:5001/api/orders/${id}`, {
+        const res = await fetch(`http://localhost:5000/api/orders/${id}`, {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }

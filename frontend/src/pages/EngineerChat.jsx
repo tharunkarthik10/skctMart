@@ -313,7 +313,7 @@ export const EngineerChat = () => {
                 <div key={msg.id} className="flex justify-end animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="max-w-[85%] md:max-w-[70%]">
                     <div className="bg-[var(--color-primary)] text-white p-4 rounded-2xl rounded-tr-none shadow-sm">
-                      {msg.content.startsWith('http') && msg.content.includes('res.cloudinary.com') ? (
+                      {msg.content.startsWith('http') && (msg.content.includes('r2.dev') || msg.content.includes('r2.cloudflarestorage.com')) ? (
                          <img src={msg.content} alt="Uploaded" className="max-w-full rounded-xl border border-white/20" />
                       ) : (
                          <p className="font-medium whitespace-pre-wrap leading-relaxed">{msg.content}</p>
@@ -330,7 +330,7 @@ export const EngineerChat = () => {
                 <div key={msg.id} className="flex justify-start animate-in fade-in slide-in-from-left-4 duration-300">
                   <div className="max-w-[85%] md:max-w-[70%]">
                     <div className="bg-[var(--color-surface)] text-[var(--color-text-primary)] p-4 rounded-2xl rounded-tl-none border border-[var(--color-border)] shadow-sm">
-                      {msg.content.startsWith('http') && msg.content.includes('res.cloudinary.com') ? (
+                      {msg.content.startsWith('http') && (msg.content.includes('r2.dev') || msg.content.includes('r2.cloudflarestorage.com')) ? (
                          <img src={msg.content} alt="Uploaded" className="max-w-full rounded-xl border border-[var(--color-border)]" />
                       ) : (
                          <p className="font-medium whitespace-pre-wrap leading-relaxed">{msg.content}</p>

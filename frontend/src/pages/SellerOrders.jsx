@@ -20,7 +20,7 @@ export const SellerOrders = () => {
         return;
       }
 
-      const res = await fetch('http://localhost:5001/api/orders/seller-orders', {
+      const res = await fetch('http://localhost:5000/api/orders/seller-orders', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         }
@@ -41,7 +41,7 @@ export const SellerOrders = () => {
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`http://localhost:5001/api/orders/${orderId}/status`, {
+      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

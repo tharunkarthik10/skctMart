@@ -20,7 +20,7 @@ export const MyOrders = () => {
         return;
       }
 
-      const res = await fetch('http://localhost:5001/api/orders/my-orders', {
+      const res = await fetch('http://localhost:5000/api/orders/my-orders', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         }
@@ -42,7 +42,7 @@ export const MyOrders = () => {
     if (!window.confirm("Are you sure you want to cancel this order?")) return;
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`http://localhost:5001/api/orders/${orderId}/cancel`, {
+      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/cancel`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${session.access_token}`

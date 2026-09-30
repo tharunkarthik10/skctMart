@@ -38,6 +38,17 @@ model User {
 
   messagesSent     Message[]   @relation("SenderMessages")
   messagesReceived Message[]   @relation("ReceiverMessages")
+  bids             Bid[]
+}
+
+model Bid {
+  id           String    @id @default(uuid())
+  amount       Float
+  bidder_id    String
+  bidder       User      @relation(fields: [bidder_id], references: [id])
+  component_id String
+  component    Component @relation(fields: [component_id], references: [id])
+  createdAt    DateTime  @default(now())
 }
 
 model Component {
@@ -61,6 +72,7 @@ model Component {
   createdAt        DateTime @default(now())
   updatedAt   DateTime @updatedAt
   chats       Chat[]
+  bids        Bid[]
 }
 
 model Order {

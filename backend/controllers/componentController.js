@@ -61,3 +61,22 @@ export const deleteComponent = async (req, res, next) => {
         next(error);
     }
 };
+
+export const getComponentBids = async (req, res, next) => {
+    try {
+        const bids = await ComponentService.getComponentBids(req.params.id);
+        res.status(200).json(bids);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const placeBid = async (req, res, next) => {
+    try {
+        const { amount } = req.body;
+        const bid = await ComponentService.placeBid(req.params.id, req.user.id, amount);
+        res.status(201).json(bid);
+    } catch (error) {
+        next(error);
+    }
+};

@@ -22,6 +22,7 @@ import { CampusEvents } from './pages/CampusEvents';
 import { AiChatBot } from './components/AiChatBot';
 import { supabase } from './supabaseClient';
 import apiClient from './api/client';
+import { Wishlist } from './pages/Wishlist';
 import { AdminRoute } from './components/AdminRoute';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUsers } from './pages/admin/AdminUsers';
@@ -76,7 +77,7 @@ const ProtectedRoute = () => {
           }
 
           // Admin Bootstrap Logic
-          const isAdminEmail = sessionData.user.email === 'tharunkarthikav21@gmail.com';
+          const isAdminEmail = sessionData.user.email === '727824tuio046@skct.edu.in';
           if (isAdminEmail && !profile?.is_admin) {
             try {
               await apiClient.put(`/users/${sessionData.user.id}`, { is_admin: true, role: 'Admin', is_profile_verified: true });
@@ -159,6 +160,7 @@ function App() {
           <Route path="/orders/:id" element={<OrderDetails />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/chat/:chatId" element={<Inbox />} />
+          <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/profile" element={<PersonalProfile />} />
           <Route path="/user/:userId" element={<PublicProfile />} />
           <Route path="/events/hackathon" element={<Hackathon />} />

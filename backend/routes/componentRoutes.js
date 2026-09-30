@@ -8,10 +8,13 @@ const router = express.Router();
 router.get('/', ComponentController.getComponents);
 router.get('/:id', ComponentController.getComponentById);
 
+router.get('/:id/bids', ComponentController.getComponentBids);
+
 // Protected routes
 router.use(authMiddleware);
 router.post('/', verifiedProfileMiddleware, ComponentController.createComponent);
 router.put('/:id', verifiedProfileMiddleware, ComponentController.updateComponent);
 router.delete('/:id', verifiedProfileMiddleware, ComponentController.deleteComponent);
+router.post('/:id/bids', verifiedProfileMiddleware, ComponentController.placeBid);
 
 export default router;

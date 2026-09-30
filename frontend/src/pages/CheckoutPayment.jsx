@@ -8,15 +8,16 @@ export const CheckoutPayment = () => {
   const navigate = useNavigate();
 
   const [product, setProduct] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentFailed, setPaymentFailed] = useState(null); 
+  const [paymentFailed, setPaymentFailed] = useState(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    const fetchProduct = async () => {
+    const fetchData = async () => {
       try {
         const response = await apiClient.get(`/components/${id}`);
         const comp = response.data;
@@ -26,15 +27,24 @@ export const CheckoutPayment = () => {
           price: `₹${comp.price}`,
           images: comp.images?.length > 0 ? comp.images : ['https://picsum.photos/800/800?random=99'],
           image: comp.image_url || (comp.images?.length > 0 ? comp.images[0] : 'https://picsum.photos/800/800?random=99'),
-          seller: comp.seller?.name || comp.seller?.email?.split('@')[0] || 'Maker'
+          seller: {
+            name: comp.seller?.name || comp.seller?.email?.split('@')[0] || 'Maker',
+            college: comp.seller?.college || 'SKCET'
+          }
         });
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const userRes = await apiClient.get(`/users/${session.user.id}`);
+          setUserProfile(userRes.data);
+        }
       } catch (err) {
-        console.error("Error fetching product:", err);
+        console.error("Error fetching data:", err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchProduct();
+    fetchData();
   }, [id]);
 
   useEffect(() => {
@@ -86,18 +96,23 @@ export const CheckoutPayment = () => {
       setIsProcessing(true);
       setPaymentFailed(null);
       
-      const API_URL = 'http://localhost:5001/api/payment/create-order';
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: grandTotal })
-      });
-      
-      const orderData = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(orderData.error || orderData.details || 'Failed to initialize payment');
+      const { data: { session } } = await supabase.auth.getSession();
+      let token = session?.access_token;
+      if (!token) {
+        const demoUserStr = localStorage.getItem('demo_user_session');
+        if (demoUserStr) {
+           try {
+             const parsed = JSON.parse(demoUserStr);
+             token = `demo_token_${parsed.user?.id || '87650734-b92a-4465-b397-325f392c0267'}`;
+           } catch(e) {}
+        }
       }
+      if (!token) token = 'demo_token';
+
+      const res = await apiClient.post('/payment/create-order', { amount: grandTotal }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const orderData = res.data;
       
       if (!orderData || !orderData.orderId) {
         throw new Error('Invalid response from server: Missing Order ID');
@@ -112,32 +127,24 @@ export const CheckoutPayment = () => {
         order_id: orderData.orderId,
         handler: async function (response) {
           try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            
-            const verifyRes = await fetch('http://localhost:5001/api/payment/verify', {
-              method: 'POST',
-              headers: { 
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                productId: product.id,
-                productName: product.name,
-                productImage: product.images[0],
-                quantity: quantity,
-                price: grandTotal,
-                subtotal: subtotal,
-                platformFee: platformFee,
-                deliveryFee: deliveryFee,
-                gst: 0,
-                deliveryAddress: 'Block B, Room 304, SKCET Mens Hostel' 
-              })
+            const verifyRes = await apiClient.post('/payment/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              productId: product.id,
+              productName: product.name,
+              productImage: product.images[0],
+              quantity: quantity,
+              price: grandTotal,
+              subtotal: subtotal,
+              platformFee: platformFee,
+              deliveryFee: deliveryFee,
+              gst: 0,
+              deliveryAddress: 'Block B, Room 304, SKCET Mens Hostel' 
+            }, {
+              headers: { 'Authorization': `Bearer ${token}` }
             });
-            const verifyData = await verifyRes.json();
+            const verifyData = verifyRes.data;
             
             if (verifyData.success) {
               navigate('/order-success', {
@@ -154,12 +161,12 @@ export const CheckoutPayment = () => {
             }
           } catch (err) {
             console.error('Verification network error:', err);
-            setPaymentFailed(err.message || 'Network error during verification.');
+            setPaymentFailed(err.response?.data?.error || err.message || 'Network error during verification.');
           }
         },
         prefill: {
-          name: "John Doe",
-          contact: "9876543210"
+          name: userProfile?.name || "John Doe",
+          contact: userProfile?.mobile_number || "9876543210"
         },
         theme: {
           color: '#46A857' // Green primary color
@@ -184,7 +191,7 @@ export const CheckoutPayment = () => {
 
     } catch (error) {
       console.error('Checkout Flow Error:', error);
-      setPaymentFailed(error.message || 'An unexpected error occurred.');
+      setPaymentFailed(error.response?.data?.error || error.message || 'An unexpected error occurred.');
       setIsProcessing(false);
     }
   };
@@ -272,11 +279,11 @@ export const CheckoutPayment = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="input-label block">Full Name</label>
-                  <input type="text" defaultValue="John Doe" className="input-standard" />
+                  <input type="text" defaultValue={userProfile?.name || ''} className="input-standard" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="input-label block">Phone Number</label>
-                  <input type="tel" defaultValue="+91 9876543210" className="input-standard" />
+                  <input type="tel" defaultValue={userProfile?.mobile_number || ''} className="input-standard" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="input-label block">College</label>
@@ -284,11 +291,11 @@ export const CheckoutPayment = () => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="input-label block">Department / Year</label>
-                  <input type="text" defaultValue="CSE / 3rd Year" className="input-standard" />
+                  <input type="text" defaultValue={`${userProfile?.department || ''} / ${userProfile?.year || ''}`} className="input-standard" />
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <label className="input-label block">Classroom / Hostel / Preferred Meetup Spot</label>
-                  <textarea rows="3" defaultValue="Block B, Room 304, SKCET Mens Hostel" className="input-standard resize-none"></textarea>
+                  <textarea rows="3" defaultValue={userProfile?.classroom_no || ''} className="input-standard resize-none"></textarea>
                 </div>
               </div>
             </div>
