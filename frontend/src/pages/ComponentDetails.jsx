@@ -20,6 +20,43 @@ export const ComponentDetails = () => {
   const [highestBid, setHighestBid] = useState(0);
   const [bidSuccess, setBidSuccess] = useState(false);
   const [bidHistory, setBidHistory] = useState([]);
+  const [timeLeftStr, setTimeLeftStr] = useState("Loading...");
+  const [auctionEndDate, setAuctionEndDate] = useState(null);
+
+  useEffect(() => {
+    if (currentProduct?.isAuction) {
+       const created = currentProduct.createdAt ? new Date(currentProduct.createdAt) : new Date(Date.now() - 100000000);
+       const end = new Date(created.getTime() + 3 * 24 * 60 * 60 * 1000);
+       while (end < new Date()) {
+           end.setDate(end.getDate() + 1);
+       }
+       setAuctionEndDate(end);
+    }
+  }, [currentProduct]);
+
+  useEffect(() => {
+    if (!isBidModalOpen || !auctionEndDate) return;
+
+    const tick = () => {
+        const now = new Date();
+        const diff = auctionEndDate - now;
+        
+        if (diff <= 0) {
+            setTimeLeftStr("Ended");
+            return;
+        }
+
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const m = Math.floor((diff / 1000 / 60) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+        setTimeLeftStr(`${d}d ${h}h ${m}m ${s}s`);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [isBidModalOpen, auctionEndDate]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -67,6 +104,7 @@ export const ComponentDetails = () => {
           description: comp.why_sell || comp.tech_specs || comp.description || '',
           category: comp.category || 'Electronics',
           isAuction: comp.listing_type === 'AUCTION' || comp.isAuction === true,
+          createdAt: comp.createdAt,
           images: comp.images?.length > 0 ? comp.images : (comp.image ? [comp.image] : ['https://picsum.photos/800/800?random=99']),
           image: comp.image_url || (comp.images?.length > 0 ? comp.images[0] : (comp.image || 'https://picsum.photos/800/800?random=99')),
           seller: { 
@@ -514,7 +552,7 @@ export const ComponentDetails = () => {
                       <h4 className="font-bold text-[var(--color-text-primary)] text-lg line-clamp-1">{currentProduct?.name}</h4>
                       <div className="text-sm font-bold text-[var(--color-warning-dark)] flex items-center gap-1 mt-1 bg-[var(--color-warning)]/20 w-fit px-2 py-0.5 rounded-md">
                         <span className="material-symbols-outlined text-[16px]">timer</span>
-                        Ends in 2d 14h
+                        Ends in {timeLeftStr}
                       </div>
                     </div>
                   </div>
