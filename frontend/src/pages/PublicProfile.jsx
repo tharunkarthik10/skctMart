@@ -20,7 +20,8 @@ export const PublicProfile = () => {
       const currentUserDomain = user?.email?.split('@')[1];
 
       // Fetch current user's admin status
-      let isAdmin = user?.email === '727824tuio046@skct.edu.in';
+      const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+      let isAdmin = ADMIN_EMAILS.includes(user?.email);
       if (user && !isAdmin) {
         try {
           const res = await apiClient.get(`/users/${user.id}`);
@@ -115,12 +116,14 @@ export const PublicProfile = () => {
 
   return (
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24">
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Public Profile</h1>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Public Profile</h1>
+          </div>
         </div>
       </header>
       

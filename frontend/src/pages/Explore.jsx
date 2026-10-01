@@ -132,7 +132,7 @@ export const Explore = () => {
         </div>
       </div>
 
-      <div className="py-4 px-[1cm] space-y-8">
+      <div className="max-w-7xl mx-auto py-6 px-4 md:px-8 space-y-8">
         {/* Tech Daily News */}
         <section>
           <div className="flex items-center justify-between mb-4 mt-2 pr-2">
@@ -141,7 +141,7 @@ export const Explore = () => {
               <h2 className="text-lg font-bold text-[var(--color-text-primary)]">Tech Daily News</h2>
             </div>
           </div>
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2 px-[1cm] -mx-[1cm]">
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2">
             {isLoadingNews ? (
               [1, 2, 3].map(n => (
                 <div key={n} className="snap-center shrink-0 w-[85vw] md:w-[320px] lg:w-[380px] bg-[var(--color-card)] rounded-xl shadow-sm flex flex-col overflow-hidden animate-pulse">
@@ -214,7 +214,7 @@ export const Explore = () => {
             ))}
           </div>
 
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 px-[1cm] -mx-[1cm]">
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4">
             {isLoadingLiveNews ? (
               [1, 2, 3].map(n => (
                 <div key={n} className="snap-center shrink-0 w-[85vw] md:w-[320px] lg:w-[380px] bg-[var(--color-card)] rounded-xl shadow-sm flex flex-col overflow-hidden animate-pulse">
@@ -277,7 +277,7 @@ export const Explore = () => {
               View More <span className="material-symbols-outlined text-[14px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </a>
           </div>
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2 px-[1cm] -mx-[1cm]">
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2">
             {isLoadingProblems ? (
               [1, 2, 3].map(n => (
                 <div key={n} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm animate-pulse flex flex-col justify-between h-48">
@@ -287,7 +287,7 @@ export const Explore = () => {
                 </div>
               ))
             ) : sihProblems.map(prob => (
-              <a href={prob.link || '#'} target="_blank" rel="noopener noreferrer" key={prob.id} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)] transition-colors cursor-pointer group flex flex-col justify-between">
+              <a href={prob.link || 'https://www.sih.gov.in/sih2023PS'} target="_blank" rel="noopener noreferrer" key={prob.id} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)] transition-colors cursor-pointer group flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-1">
                     <div className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider">{prob.org}</div>
@@ -322,7 +322,7 @@ export const Explore = () => {
               View More <span className="material-symbols-outlined text-[14px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </a>
           </div>
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2 px-[1cm] -mx-[1cm]">
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2">
             {isLoadingProblems ? (
               [1, 2, 3].map(n => (
                 <div key={n} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm animate-pulse flex flex-col justify-between h-48">
@@ -332,7 +332,7 @@ export const Explore = () => {
                 </div>
               ))
             ) : indiaInnovateProblems.map(prob => (
-              <a href={prob.link || '#'} target="_blank" rel="noopener noreferrer" key={prob.id} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)] transition-colors cursor-pointer group flex flex-col justify-between">
+              <a href={prob.link || 'https://innovateindia.mygov.in/'} target="_blank" rel="noopener noreferrer" key={prob.id} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)] transition-colors cursor-pointer group flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-1">
                     <div className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider">{prob.org}</div>
@@ -367,7 +367,7 @@ export const Explore = () => {
               View More <span className="material-symbols-outlined text-[14px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </a>
           </div>
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2 px-[1cm] -mx-[1cm]">
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory pb-4 pt-2">
             {isLoadingProblems ? (
               [1, 2, 3].map(n => (
                 <div key={n} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm animate-pulse flex flex-col justify-between h-48">
@@ -377,7 +377,7 @@ export const Explore = () => {
                 </div>
               ))
             ) : startupIndiaProblems.map(prob => (
-              <a href={prob.link || '#'} target="_blank" rel="noopener noreferrer" key={prob.id} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)] transition-colors cursor-pointer group flex flex-col justify-between">
+              <a href={prob.link || 'https://www.startupindia.gov.in/'} target="_blank" rel="noopener noreferrer" key={prob.id} className="snap-center shrink-0 w-[85vw] md:w-[300px] lg:w-[350px] bg-[var(--color-card)] rounded-3xl p-5 border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)] transition-colors cursor-pointer group flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-1">
                     <div className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider">{prob.org}</div>

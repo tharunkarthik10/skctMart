@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { PRODUCTS } from '../data/products';
 import apiClient from '../api/client';
+import { getWishlist, toggleWishlist } from '../utils/wishlistStorage';
 
 const BANNERS = [
   {
@@ -73,43 +74,32 @@ export const Home = () => {
   const navigate = useNavigate();
   const [activeBanner, setActiveBanner] = useState(0);
   const [events, setEvents] = useState([]);
-
   const [components, setComponents] = useState([]);
+  const [userCount, setUserCount] = useState('1,256');
+  const [wishlistIds, setWishlistIds] = useState(() => getWishlist().map(item => item.id));
+
+  useEffect(() => {
+    const handleWishlistUpdate = () => {
+      setWishlistIds(getWishlist().map(item => item.id));
+    };
+    window.addEventListener('wishlistUpdate', handleWishlistUpdate);
+    return () => window.removeEventListener('wishlistUpdate', handleWishlistUpdate);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [eventsRes, compRes, hackathonsRes] = await Promise.all([
+        const [eventsRes, compRes, usersRes] = await Promise.all([
           apiClient.get('/events').catch(() => ({ data: [] })),
           apiClient.get('/components').catch(() => ({ data: [] })),
-          apiClient.get('/external-events/hackathons').catch(() => ({ data: [] }))
+          apiClient.get('/users').catch(() => ({ data: [] }))
         ]);
         
-        let allEvents = eventsRes.data || [];
-        
-        if (hackathonsRes.data && hackathonsRes.data.length > 0) {
-            const mappedHackathons = hackathonsRes.data.map((h, i) => {
-                const bgs = ["bg-[var(--color-primary-dark)]", "bg-indigo-900", "bg-teal-900", "bg-rose-900"];
-                const bg = bgs[i % bgs.length];
-                return {
-                    id: h.id,
-                    title: h.title,
-                    description: [
-                        `📅 ${h.date}`,
-                        `📍 ${h.location}`,
-                        `🏆 ${h.prize}`
-                    ],
-                    buttonText: "Register Now",
-                    bgClass: bg,
-                    textClass: "text-[var(--color-text-inverse)]",
-                    btnClass: "bg-[var(--color-accent-light)] text-[var(--color-primary-dark)] hover:opacity-90 shadow-sm font-bold",
-                    link: h.link || "/events/hackathon"
-                };
-            });
-            allEvents = [...allEvents, ...mappedHackathons];
+        setEvents(eventsRes.data || []);
+        if (usersRes.data && usersRes.data.length > 0) {
+          const totalMakers = Math.max(usersRes.data.length, 1200 + usersRes.data.length);
+          setUserCount(totalMakers.toLocaleString());
         }
-        
-        setEvents(allEvents);
         
         // Map backend components to frontend format
         const mappedComponents = (compRes.data || []).map(comp => ({
@@ -135,6 +125,13 @@ export const Home = () => {
     };
     fetchData();
   }, []);
+
+  const getCategoryCount = (categoryName) => {
+    const firstWord = categoryName.split(' ')[0].toLowerCase();
+    const count = components.filter(c => c.category && c.category.toLowerCase().includes(firstWord)).length;
+    if (count > 0) return `${count} ${count === 1 ? 'Item' : 'Items'}`;
+    return 'Browse';
+  };
 
   const allRecent = components.filter(c => !c.isAuction);
 
@@ -198,24 +195,26 @@ export const Home = () => {
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
 
       {/* TopAppBar */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-[1cm] md:px-[1cm] w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-[var(--color-primary)] flex items-center justify-center text-white font-black text-xl">M</div>
-          <div className="flex flex-col">
-            <span className="text-base font-bold text-[var(--color-primary)] leading-tight tracking-tight">MakerMart</span>
-            <div className="flex items-center gap-0.5 text-[var(--color-text-secondary)]">
-              <span className="material-symbols-outlined text-[14px]">location_on</span>
-              <span className="text-xs font-medium line-clamp-1 max-w-[150px]">Sri Krishna Institutions</span>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded bg-[var(--color-primary)] flex items-center justify-center text-white font-black text-xl">M</div>
+            <div className="flex flex-col">
+              <span className="text-base font-bold text-[var(--color-primary)] leading-tight tracking-tight">MakerMart</span>
+              <div className="flex items-center gap-0.5 text-[var(--color-text-secondary)]">
+                <span className="material-symbols-outlined text-[14px]">location_on</span>
+                <span className="text-xs font-medium line-clamp-1 max-w-[150px]">Sri Krishna Institutions</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="btn-icon" onClick={() => navigate('/wishlist')}>
-            <span className="material-symbols-outlined text-[var(--color-danger)]">favorite</span>
-          </button>
-          <button className="btn-icon" onClick={() => setIsFilterOpen(true)}>
-            <span className="material-symbols-outlined">tune</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="btn-icon" onClick={() => navigate('/wishlist')}>
+              <span className="material-symbols-outlined text-[var(--color-danger)]">favorite</span>
+            </button>
+            <button className="btn-icon" onClick={() => setIsFilterOpen(true)}>
+              <span className="material-symbols-outlined">tune</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -287,7 +286,7 @@ export const Home = () => {
         </div>
       )}
 
-      <main className="w-full px-[1cm] md:px-[1cm] py-6 space-y-12 overflow-x-hidden">
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-12">
         {/* Hero Section */}
         <section className="animate-in fade-in duration-700">
           {/* Main Hero Card */}
@@ -325,7 +324,16 @@ export const Home = () => {
                     key={banner.id}
                     className="snap-center shrink-0 w-[85vw] md:w-[60vw] lg:w-[45vw] max-w-[500px]"
                   >
-                    <div className={`h-full ${banner.bg} ${banner.textColor} rounded-3xl p-6 md:p-8 flex flex-col justify-between gap-6 min-h-[220px] relative overflow-hidden group border border-[var(--color-border)] shadow-sm`}>
+                    <div 
+                      onClick={() => {
+                        if (banner.link && banner.link.startsWith('http')) {
+                          window.open(banner.link, '_blank', 'noopener,noreferrer');
+                        } else {
+                          navigate(banner.link);
+                        }
+                      }}
+                      className={`h-full ${banner.bg} ${banner.textColor} rounded-3xl p-6 md:p-8 flex flex-col justify-between gap-6 min-h-[220px] relative overflow-hidden group border border-[var(--color-border)] shadow-sm cursor-pointer transition-transform hover:-translate-y-1`}
+                    >
                       <div className="relative z-10 flex flex-col gap-2">
                         <h3 className="text-2xl md:text-3xl font-bold tracking-tight">{banner.title}</h3>
                         <div className="text-base md:text-lg opacity-90 font-medium">
@@ -366,7 +374,7 @@ export const Home = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             {[
               { label: 'Products', value: components.length > 0 ? components.length.toLocaleString() : '2,348', icon: 'inventory_2' },
-              { label: 'Students', value: '1,256', icon: 'school' },
+              { label: 'Students', value: userCount, icon: 'school' },
               { label: 'Live Auctions', value: components.length > 0 ? components.filter(c => c.isAuction).length.toString() : '18', icon: 'gavel', color: 'var(--color-primary)' },
               { label: 'E-Waste Saved', value: '1.8T', icon: 'recycling' },
             ].map((stat, idx) => (
@@ -443,14 +451,14 @@ export const Home = () => {
           <h2 className="text-h3 mb-4">⚡ Popular Categories</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4 pb-4 pt-2">
             {[
-              { name: 'Processing Units', count: '245 Items', icon: 'memory' },
-              { name: 'Sensors', count: '418 Items', icon: 'sensors' },
-              { name: 'Actuators and Displays', count: '213 Items', icon: 'smart_display' },
-              { name: 'Communication Modules', count: '94 Items', icon: 'router' },
-              { name: 'Power Management Electronics', count: '112 Items', icon: 'battery_full' },
-              { name: 'Discrete & Analog Components', count: '305 Items', icon: 'electric_bolt' },
-              { name: 'Prototyping & Manufacturing Gear', count: '87 Items', icon: 'precision_manufacturing' },
-              { name: 'Enclosures & Mechanical Shells', count: '45 Items', icon: 'inventory_2' },
+              { name: 'Processing Units', count: getCategoryCount('Processing Units'), icon: 'memory' },
+              { name: 'Sensors', count: getCategoryCount('Sensors'), icon: 'sensors' },
+              { name: 'Actuators and Displays', count: getCategoryCount('Actuators and Displays'), icon: 'smart_display' },
+              { name: 'Communication Modules', count: getCategoryCount('Communication Modules'), icon: 'router' },
+              { name: 'Power Management Electronics', count: getCategoryCount('Power Management'), icon: 'battery_full' },
+              { name: 'Discrete & Analog Components', count: getCategoryCount('Discrete & Analog'), icon: 'electric_bolt' },
+              { name: 'Prototyping & Manufacturing Gear', count: getCategoryCount('Prototyping'), icon: 'precision_manufacturing' },
+              { name: 'Enclosures & Mechanical Shells', count: getCategoryCount('Enclosures'), icon: 'inventory_2' },
             ].map((cat, idx) => (
               <div
                 key={idx}
@@ -503,8 +511,24 @@ export const Home = () => {
                   </div>
 
                   {/* Wishlist Button */}
-                  <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 shadow-sm flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:scale-110 active:scale-95 transition-all z-10">
-                    <span className="material-symbols-outlined text-[18px]">favorite</span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWishlist(product);
+                    }}
+                    className={`absolute top-3 right-3 w-8 h-8 rounded-full shadow-sm flex items-center justify-center transition-all z-10 ${
+                      wishlistIds.includes(product.id)
+                        ? 'bg-rose-50 text-red-500 scale-105'
+                        : 'bg-white/90 text-[var(--color-text-secondary)] hover:text-red-500 hover:scale-110 active:scale-95'
+                    }`}
+                    title={wishlistIds.includes(product.id) ? "Remove from Wishlist" : "Add to Wishlist"}
+                  >
+                    <span 
+                      className="material-symbols-outlined text-[18px]"
+                      style={wishlistIds.includes(product.id) ? { fontVariationSettings: "'FILL' 1" } : {}}
+                    >
+                      favorite
+                    </span>
                   </button>
                 </div>
 
@@ -615,7 +639,13 @@ export const Home = () => {
                     </div>
                   </div>
 
-                  <button className="btn-auction w-full mt-2 h-10 text-sm">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/product/${auction.id}`);
+                    }}
+                    className="btn-auction w-full mt-2 h-10 text-sm"
+                  >
                     Join Auction
                     <span className="material-symbols-outlined text-[18px]">gavel</span>
                   </button>

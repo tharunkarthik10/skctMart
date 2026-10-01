@@ -14,7 +14,8 @@ export const verifiedProfileMiddleware = async (req, res, next) => {
         }
         
         // Admins bypass
-        const isAdmin = dbUser?.is_admin || dbUser?.role === 'Admin' || req.user?.email === '727824tuio046@skct.edu.in' || req.user?.id?.includes('admin');
+        const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+        const isAdmin = dbUser?.is_admin || dbUser?.role === 'Admin' || ADMIN_EMAILS.includes(req.user?.email) || req.user?.id?.includes('admin');
         if (isAdmin) {
             return next();
         }

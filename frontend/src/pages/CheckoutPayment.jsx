@@ -14,6 +14,9 @@ export const CheckoutPayment = () => {
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentFailed, setPaymentFailed] = useState(null);
+  const [meetupName, setMeetupName] = useState('');
+  const [meetupPhone, setMeetupPhone] = useState('');
+  const [meetupSpot, setMeetupSpot] = useState('Campus Central Library / Food Court');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -37,6 +40,9 @@ export const CheckoutPayment = () => {
         if (session) {
           const userRes = await apiClient.get(`/users/${session.user.id}`);
           setUserProfile(userRes.data);
+          if (userRes.data?.name) setMeetupName(userRes.data.name);
+          if (userRes.data?.mobile_number) setMeetupPhone(userRes.data.mobile_number);
+          if (userRes.data?.classroom_no) setMeetupSpot(`Block / Room: ${userRes.data.classroom_no}`);
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -140,7 +146,7 @@ export const CheckoutPayment = () => {
               platformFee: platformFee,
               deliveryFee: deliveryFee,
               gst: 0,
-              deliveryAddress: 'Block B, Room 304, SKCET Mens Hostel' 
+              deliveryAddress: `${meetupSpot} (Recipient: ${meetupName || 'Student'}, Ph: ${meetupPhone || 'N/A'})` 
             }, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -227,16 +233,18 @@ export const CheckoutPayment = () => {
       )}
 
       {/* Header */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-40 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="btn-icon">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Checkout</h1>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-40 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="btn-icon">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Checkout</h1>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-8 pt-8">
+      <main className="max-w-7xl mx-auto px-4 md:px-8 pt-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* Left Column - Details */}
@@ -279,23 +287,51 @@ export const CheckoutPayment = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="input-label block">Full Name</label>
-                  <input type="text" defaultValue={userProfile?.name || ''} className="input-standard" />
+                  <input 
+                    type="text" 
+                    value={meetupName} 
+                    onChange={(e) => setMeetupName(e.target.value)} 
+                    placeholder="Enter your name"
+                    className="input-standard" 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="input-label block">Phone Number</label>
-                  <input type="tel" defaultValue={userProfile?.mobile_number || ''} className="input-standard" />
+                  <input 
+                    type="tel" 
+                    value={meetupPhone} 
+                    onChange={(e) => setMeetupPhone(e.target.value)} 
+                    placeholder="Enter 10-digit mobile number"
+                    className="input-standard" 
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="input-label block">College</label>
-                  <input type="text" defaultValue="SKCET" className="input-standard" />
+                  <label className="input-label block">College Campus</label>
+                  <input 
+                    type="text" 
+                    defaultValue="Sri Krishna College of Engineering and Technology (SKCET)" 
+                    readOnly
+                    className="input-standard bg-[var(--color-background)]/50" 
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="input-label block">Department / Year</label>
-                  <input type="text" defaultValue={`${userProfile?.department || ''} / ${userProfile?.year || ''}`} className="input-standard" />
+                  <input 
+                    type="text" 
+                    defaultValue={`${userProfile?.department || 'Engineering'} / ${userProfile?.year || '2026'}`} 
+                    readOnly
+                    className="input-standard bg-[var(--color-background)]/50" 
+                  />
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
                   <label className="input-label block">Classroom / Hostel / Preferred Meetup Spot</label>
-                  <textarea rows="3" defaultValue={userProfile?.classroom_no || ''} className="input-standard resize-none"></textarea>
+                  <textarea 
+                    rows="3" 
+                    value={meetupSpot} 
+                    onChange={(e) => setMeetupSpot(e.target.value)} 
+                    placeholder="e.g. Mech Block 304, Central Library Lawn, or Canteen"
+                    className="input-standard resize-none"
+                  ></textarea>
                 </div>
               </div>
             </div>

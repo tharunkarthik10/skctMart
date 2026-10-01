@@ -8,7 +8,7 @@ export const ExploreCategories = () => {
 
   const handleSearch = (e) => {
     if (e.key === 'Enter' && searchQuery.trim() !== '') {
-      navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 
@@ -16,12 +16,14 @@ export const ExploreCategories = () => {
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24">
       
       {/* TopAppBar */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Explore</h1>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Explore</h1>
+          </div>
         </div>
       </header>
 
@@ -49,7 +51,7 @@ export const ExploreCategories = () => {
               {['ESP32', 'Lidar', 'LiPo', 'Raspberry Pi 5'].map(term => (
                 <div 
                   key={term}
-                  onClick={() => navigate(`/?search=${term}`)} 
+                  onClick={() => navigate(`/products?q=${term}`)} 
                   className="px-4 py-1.5 bg-[var(--color-background)] rounded-full text-sm font-semibold text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] cursor-pointer transition-colors"
                 >
                   {term}
@@ -72,7 +74,7 @@ export const ExploreCategories = () => {
           {/* Bento Grid Layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* Large Featured Category */}
-            <div onClick={() => navigate('/?category=Development Boards')} className="md:col-span-2 card-interactive p-8 flex flex-col justify-between group overflow-hidden relative min-h-[220px]">
+            <div onClick={() => navigate('/products?category=Development Boards')} className="md:col-span-2 card-interactive p-8 flex flex-col justify-between group overflow-hidden relative min-h-[220px]">
               <div className="relative z-10 max-w-[60%]">
                 <span className="text-xs font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-3 py-1 rounded-md mb-3 inline-block">Popular Choice</span>
                 <h4 className="text-h2 mb-2 group-hover:text-[var(--color-primary)] transition-colors">Development Boards</h4>
@@ -88,7 +90,7 @@ export const ExploreCategories = () => {
             </div>
 
             {/* Robotics Card */}
-            <div onClick={() => navigate('/?category=Robotics Components')} className="card-interactive p-6 flex flex-col gap-4 group min-h-[220px]">
+            <div onClick={() => navigate('/products?category=Robotics Components')} className="card-interactive p-6 flex flex-col gap-4 group min-h-[220px]">
               <div className="w-14 h-14 rounded-2xl bg-[var(--color-background)] flex items-center justify-center text-[var(--color-primary)] border border-[var(--color-border)] group-hover:bg-[var(--color-primary)] group-hover:text-white transition-colors">
                 <span className="material-symbols-outlined text-[32px]">smart_toy</span>
               </div>
@@ -107,7 +109,7 @@ export const ExploreCategories = () => {
               { name: 'Displays', desc: 'OLED, TFT, E-Ink', icon: 'monitor' },
               { name: 'Electronic Components', desc: 'SMD Passive, ICs', icon: 'electric_bolt' },
             ].map((cat, idx) => (
-              <div key={idx} onClick={() => navigate(`/?category=${cat.name}`)} className="card-interactive p-5 flex items-center gap-4 group">
+              <div key={idx} onClick={() => navigate(`/products?category=${cat.name}`)} className="card-interactive p-5 flex items-center gap-4 group">
                 <div className="w-12 h-12 shrink-0 rounded-xl bg-[var(--color-background)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] group-hover:bg-[var(--color-primary)]/10 transition-colors">
                   <span className="material-symbols-outlined text-[24px]">{cat.icon}</span>
                 </div>
@@ -119,7 +121,7 @@ export const ExploreCategories = () => {
             ))}
 
             {/* Sustainable Highlight */}
-            <div onClick={() => navigate('/?category=Refurbished Gear')} className="md:col-span-1 bg-[var(--color-success)]/10 border border-[var(--color-success)]/20 p-6 rounded-[24px] flex flex-col gap-3 group cursor-pointer hover:shadow-md transition-all hover:-translate-y-1">
+            <div onClick={() => navigate('/products?category=Refurbished Gear')} className="md:col-span-1 bg-[var(--color-success)]/10 border border-[var(--color-success)]/20 p-6 rounded-[24px] flex flex-col gap-3 group cursor-pointer hover:shadow-md transition-all hover:-translate-y-1">
               <div className="flex justify-between items-start">
                 <div className="w-12 h-12 rounded-xl bg-[var(--color-success)] text-white flex items-center justify-center">
                   <span className="material-symbols-outlined text-[24px]">eco</span>
@@ -135,7 +137,7 @@ export const ExploreCategories = () => {
               { name: 'Cameras & Vision', desc: 'CSI, Thermal, CV', icon: 'camera' },
               { name: 'Mechanical Parts', desc: 'Bearings, Extrusions', icon: 'hardware' },
             ].map((cat, idx) => (
-              <div key={idx} onClick={() => navigate(`/?category=${cat.name}`)} className="card-interactive p-5 flex items-center gap-4 group">
+              <div key={idx} onClick={() => navigate(`/products?category=${cat.name}`)} className="card-interactive p-5 flex items-center gap-4 group">
                 <div className="w-12 h-12 shrink-0 rounded-xl bg-[var(--color-background)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] group-hover:bg-[var(--color-primary)]/10 transition-colors">
                   <span className="material-symbols-outlined text-[24px]">{cat.icon}</span>
                 </div>
@@ -161,7 +163,7 @@ export const ExploreCategories = () => {
               { name: 'Project Kits', icon: 'card_giftcard' },
               { name: 'Driver Modules', icon: 'build' },
             ].map((cat, idx) => (
-              <div key={idx} onClick={() => navigate(`/?category=${cat.name}`)} className="p-4 border border-[var(--color-border)] rounded-2xl bg-[var(--color-surface)] flex flex-col items-center gap-2 text-center hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer group">
+              <div key={idx} onClick={() => navigate(`/products?category=${cat.name}`)} className="p-4 border border-[var(--color-border)] rounded-2xl bg-[var(--color-surface)] flex flex-col items-center gap-2 text-center hover:border-[var(--color-primary)] hover:shadow-md transition-all cursor-pointer group">
                 <span className="material-symbols-outlined text-[32px] text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] transition-colors">{cat.icon}</span>
                 <span className="text-sm font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors">{cat.name}</span>
               </div>

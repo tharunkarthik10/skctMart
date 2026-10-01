@@ -1,43 +1,78 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import apiClient from '../api/client';
 
 export const AiChatBot = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { id: 1, sender: 'bot', text: 'Hi there! I am your AI assistant. How can I help with your projects or MakerMart today?' }
+    { 
+      id: 1, 
+      sender: 'bot', 
+      text: 'Hi there! 👋 I am your MakerMart AI assistant. Ask me about microcontrollers, pinouts, buying/selling hardware, live auctions, or campus hackathons!' 
+    }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Quick suggestion chips
+  const SUGGESTIONS = [
+    "⚡ ESP32 Specs",
+    "📦 How to Sell",
+    "🔨 Live Auctions",
+    "🤖 Arduino Pinouts",
+    "💡 SIH Problems"
+  ];
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+  const sendMessage = async (textToSend) => {
+    const query = textToSend || input;
+    if (!query.trim()) return;
 
     // Add user message
-    const userMessage = { id: Date.now(), sender: 'user', text: input };
+    const userMessage = { id: Date.now(), sender: 'user', text: query };
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    if (!textToSend) setInput('');
     setIsTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      setIsTyping(false);
+    try {
+      const res = await apiClient.post('/ai/chat', { 
+        message: query,
+        history: messages.slice(-6).map(m => ({ role: m.sender === 'user' ? 'user' : 'model', content: m.text }))
+      });
+      
+      const replyText = res.data?.reply || "I'm ready to help! What hardware component or MakerMart feature can I assist with?";
       setMessages(prev => [
         ...prev, 
         { 
-          id: Date.now(), 
+          id: Date.now() + 1, 
           sender: 'bot', 
-          text: "I am currently in demo mode. Once hooked up to the Gemini API on the backend, I will be able to answer your question!" 
+          text: replyText 
         }
       ]);
-    }, 1500);
+    } catch (err) {
+      console.error('AI chat request failed:', err);
+      setMessages(prev => [
+        ...prev, 
+        { 
+          id: Date.now() + 1, 
+          sender: 'bot', 
+          text: "I couldn't reach the AI engine right now. Please ensure your backend is running or try asking about ESP32, Arduino, Auctions, or Selling!" 
+        }
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    sendMessage();
   };
 
   // Hide AI Chat Bot floating button on Inbox and Chat pages to prevent UI overlap
@@ -100,7 +135,7 @@ export const AiChatBot = () => {
                     : 'bg-[var(--color-card)] text-[var(--color-text-primary)] border border-[var(--color-border)] rounded-tl-sm'
                 }`}
               >
-                <p className="text-sm leading-relaxed">{msg.text}</p>
+                <div className="text-sm leading-relaxed whitespace-pre-line">{msg.text}</div>
               </div>
             </div>
           ))}
@@ -115,6 +150,20 @@ export const AiChatBot = () => {
             </div>
           )}
           <div ref={messagesEndRef} />
+        </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="px-4 py-2 flex items-center gap-1.5 overflow-x-auto border-t border-[var(--color-border)]/50 bg-[var(--color-card)]/50 no-scrollbar">
+          {SUGGESTIONS.map((chip, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => sendMessage(chip)}
+              className="text-xs font-medium px-2.5 py-1 rounded-full whitespace-nowrap bg-[var(--color-background)] border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-all cursor-pointer shadow-sm"
+            >
+              {chip}
+            </button>
+          ))}
         </div>
 
         {/* Input Area */}

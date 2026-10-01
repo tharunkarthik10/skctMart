@@ -14,6 +14,7 @@ import { Login } from './pages/Login';
 import { PersonalProfile } from './pages/PersonalProfile';
 import { PublicProfile } from './pages/PublicProfile';
 import { Explore } from './pages/Explore';
+import { ExploreCategories } from './pages/ExploreCategories';
 import { SearchResults } from './pages/SearchResults';
 import { Hackathon } from './pages/Hackathon';
 import { TechExpo } from './pages/TechExpo';
@@ -77,7 +78,8 @@ const ProtectedRoute = () => {
           }
 
           // Admin Bootstrap Logic
-          const isAdminEmail = sessionData.user.email === '727824tuio046@skct.edu.in';
+          const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+          const isAdminEmail = ADMIN_EMAILS.includes(sessionData.user.email);
           if (isAdminEmail && !profile?.is_admin) {
             try {
               await apiClient.put(`/users/${sessionData.user.id}`, { is_admin: true, role: 'Admin', is_profile_verified: true });
@@ -149,6 +151,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Home />} />
           <Route path="/explore" element={<Explore />} />
+          <Route path="/categories" element={<ExploreCategories />} />
           <Route path="/products" element={<SearchResults />} />
           <Route path="/product/:id" element={<ComponentDetails />} />
           <Route path="/sell" element={<ListComponent />} />

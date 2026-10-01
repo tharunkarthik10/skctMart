@@ -62,7 +62,8 @@ export const ListComponent = () => {
         return;
       }
 
-      const isAdminUser = profile?.is_admin || profile?.role === 'Admin' || user?.email === '727824tuio046@skct.edu.in';
+      const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+      const isAdminUser = profile?.is_admin || profile?.role === 'Admin' || ADMIN_EMAILS.includes(user?.email);
       if (!isAdminUser && !profile?.is_profile_verified && !profile?.pending_profile_updates) {
         alert('Your profile details are pending admin verification. You can only list components once verified.');
         navigate('/profile');
@@ -169,12 +170,14 @@ export const ListComponent = () => {
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24">
       
       {/* TopAppBar */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">List Your Hardware</h1>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">List Your Hardware</h1>
+          </div>
         </div>
       </header>
 

@@ -230,22 +230,24 @@ export const ComponentDetails = () => {
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
       
       {/* TopAppBar */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="btn-icon">
-            <span className="material-symbols-outlined">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">MakerMart</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="btn-icon" onClick={() => navigate('/wishlist')}>
-            <span className="material-symbols-outlined text-[var(--color-danger)]">
-              {isInWishlist ? 'favorite' : 'favorite_border'}
-            </span>
-          </button>
-          <button className="btn-icon" onClick={handleShare}>
-            <span className="material-symbols-outlined">share</span>
-          </button>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="btn-icon">
+              <span className="material-symbols-outlined">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">MakerMart</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="btn-icon" onClick={() => navigate('/wishlist')}>
+              <span className="material-symbols-outlined text-[var(--color-danger)]">
+                {isInWishlist ? 'favorite' : 'favorite_border'}
+              </span>
+            </button>
+            <button className="btn-icon" onClick={handleShare}>
+              <span className="material-symbols-outlined">share</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -418,6 +420,10 @@ export const ComponentDetails = () => {
                         alert("Please log in to purchase.");
                         return;
                       }
+                      if (currentProduct.seller?.id && user.id === currentProduct.seller.id) {
+                        alert("This is your own listing! You cannot purchase your own item.");
+                        return;
+                      }
                       try {
                         const { data: profile } = await apiClient.get(`/users/${user.id}`);
                         if (!profile.is_profile_verified) {
@@ -449,6 +455,12 @@ export const ComponentDetails = () => {
                       btn.innerHTML = originalHtml;
                       return;
                     }
+                    if (currentProduct.seller?.id && user.id === currentProduct.seller.id) {
+                      alert("This is your own listing! You can manage or edit it from your profile.");
+                      btn.disabled = false;
+                      btn.innerHTML = originalHtml;
+                      return;
+                    }
                     const { data: profile } = await apiClient.get(`/users/${user.id}`);
                     if (!profile.is_profile_verified) {
                       alert("Your profile is pending admin verification. You can only chat after verification.");
@@ -457,9 +469,10 @@ export const ComponentDetails = () => {
                       return;
                     }
 
+                    const sellerId = currentProduct.seller?.id || 'maker-1';
                     const res = await apiClient.post('/chats', {
-                      seller_id: DUMMY_PRODUCT.seller.id,
-                      component_id: DUMMY_PRODUCT.id
+                      seller_id: sellerId,
+                      component_id: currentProduct.id
                     });
                     navigate(`/chat/${res.data.id}`);
                   } catch (err) {

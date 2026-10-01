@@ -33,16 +33,18 @@ export const Wishlist = () => {
 
   return (
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="btn-icon">
-            <span className="material-symbols-outlined">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">My Wishlist</h1>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="btn-icon">
+              <span className="material-symbols-outlined">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">My Wishlist</h1>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 md:px-8 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
         {wishlist.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-24 text-[var(--color-text-secondary)]">
             <span className="material-symbols-outlined text-[64px] mb-4 opacity-50 text-[var(--color-primary)]">favorite_border</span>

@@ -43,7 +43,8 @@ export const AdminRoute = () => {
           error = true;
         }
           
-        const bypass = user.email === '727824tuio046@skct.edu.in' || user.id === 'admin-user-001' || user.id === 'admin-001';
+        const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+        const bypass = ADMIN_EMAILS.includes(user.email) || user.id === 'admin-user-001' || user.id === 'admin-001';
         if (bypass || (!error && profile && profile.is_admin)) {
           if (isMounted) setIsAdmin(true);
         } else {

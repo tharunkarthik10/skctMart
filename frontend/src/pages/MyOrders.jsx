@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import apiClient from '../api/client';
+import { BottomNav } from '../components/BottomNav';
 
 export const MyOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -14,25 +16,14 @@ export const MyOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/login');
-        return;
-      }
-
-      const res = await fetch('http://localhost:5000/api/orders/my-orders', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      
-      if (!res.ok) throw new Error('Failed to fetch orders');
-      
-      const data = await res.json();
-      setOrders(data);
+      setLoading(true);
+      setError(null);
+      const res = await apiClient.get('/orders/my-orders');
+      setOrders(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error(err);
-      setError(err.message);
+      console.error('Error fetching orders:', err);
+      // Fallback empty orders instead of hard red error
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -41,20 +32,10 @@ export const MyOrders = () => {
   const handleCancelOrder = async (orderId) => {
     if (!window.confirm("Are you sure you want to cancel this order?")) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/cancel`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      
-      if (!res.ok) throw new Error('Failed to cancel order');
-      
-      // Update local state
-      setOrders(orders.map(o => o.id === orderId ? { ...o, order_status: 'Cancelled' } : o));
+      await apiClient.patch(`/orders/${orderId}/cancel`);
+      setOrders(orders.map(o => (o.id === orderId || o.order_id === orderId) ? { ...o, order_status: 'Cancelled' } : o));
     } catch (err) {
-      alert(err.message);
+      alert(err.response?.data?.error || err.message);
     }
   };
 
@@ -117,7 +98,9 @@ export const MyOrders = () => {
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase text-[var(--color-text-secondary)] mb-1">Date</p>
-                      <p className="font-semibold text-[var(--color-text-primary)]">{new Date(order.created_at).toLocaleDateString()}</p>
+                      <p className="font-semibold text-[var(--color-text-primary)]">
+                        {(order.created_at || order.createdAt) ? new Date(order.created_at || order.createdAt).toLocaleDateString() : 'Recent'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase text-[var(--color-text-secondary)] mb-1">Payment</p>
@@ -130,9 +113,9 @@ export const MyOrders = () => {
                   </div>
 
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={() => navigate(`/orders/${order.id}`)} className="btn-primary py-2 px-4 text-sm">View Details</button>
+                    <button onClick={() => navigate(`/orders/${order.id || order.order_id}`)} className="btn-primary py-2 px-4 text-sm">View Details</button>
                     {(order.order_status === 'Pending' || order.order_status === 'Confirmed') && (
-                      <button onClick={() => handleCancelOrder(order.id)} className="btn-outline py-2 px-4 text-sm text-[var(--color-danger)] border-[var(--color-danger)]/50 hover:bg-[var(--color-danger)]/5 hover:border-[var(--color-danger)]">Cancel Order</button>
+                      <button onClick={() => handleCancelOrder(order.id || order.order_id)} className="btn-outline py-2 px-4 text-sm text-[var(--color-danger)] border-[var(--color-danger)]/50 hover:bg-[var(--color-danger)]/5 hover:border-[var(--color-danger)]">Cancel Order</button>
                     )}
                   </div>
                 </div>
@@ -141,6 +124,7 @@ export const MyOrders = () => {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 };

@@ -6,7 +6,7 @@ let io;
 export const initSocket = (server) => {
     io = new Server(server, {
         cors: {
-            origin: process.env.CLIENT_URL || 'http://localhost:5173',
+            origin: '*',
             methods: ['GET', 'POST']
         }
     });
@@ -55,7 +55,8 @@ export const initSocket = (server) => {
         const userId = socket.user.id;
         socket.join(userId);
 
-        const isAdmin = socket.user.email === '727824tuio046@skct.edu.in' || socket.user.is_admin;
+        const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+        const isAdmin = ADMIN_EMAILS.includes(socket.user.email) || socket.user.is_admin;
         if (isAdmin) {
             socket.join('admin');
         }

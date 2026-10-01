@@ -44,17 +44,6 @@ export default {
         "3xl": "1.5rem",
         "full": "9999px"
       },
-      spacing: {
-        "xs": "4px",
-        "sm": "8px",
-        "md": "16px",
-        "lg": "24px",
-        "xl": "32px",
-        "2xl": "48px",
-        "3xl": "64px",
-        "gutter": "24px",
-        "container-max": "1280px",
-      },
       fontFamily: {
         "sans": ["Inter", "sans-serif"],
         "mono": ["JetBrains Mono", "monospace"],

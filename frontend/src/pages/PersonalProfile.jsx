@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import apiClient from '../api/client';
+import apiClient, { API_URL } from '../api/client';
 import { BottomNav } from '../components/BottomNav';
 
 export const PersonalProfile = () => {
@@ -227,7 +227,7 @@ export const PersonalProfile = () => {
 
     try {
       const res = await apiClient.put(`/users/${targetId}`, updates).catch(async (err) => {
-        const fetchRes = await fetch(`http://localhost:5000/api/users/${targetId}`, {
+        const fetchRes = await fetch(`${API_URL}/api/users/${targetId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -325,17 +325,19 @@ export const PersonalProfile = () => {
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
       
       {/* TopAppBar Execution */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Profile</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowSettings(true)} className="btn-icon">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">settings</span>
-          </button>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Profile</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowSettings(true)} className="btn-icon">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">settings</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -487,15 +489,27 @@ export const PersonalProfile = () => {
               </div>
             </div>
             
-            <div className="flex flex-col gap-3">
-              {(userData?.is_admin || authEmail === '727824tuio046@skct.edu.in') && (
-                <button onClick={() => navigate('/admin')} className="btn-secondary text-[var(--color-primary)]">
-                  <span className="material-symbols-outlined">admin_panel_settings</span>
+            <div className="flex flex-col gap-2.5">
+              <button onClick={() => navigate('/my-orders')} className="btn-secondary flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-[20px]">shopping_bag</span>
+                My Orders
+              </button>
+              <button onClick={() => navigate('/seller-orders')} className="btn-secondary flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-[20px]">storefront</span>
+                Seller Dashboard
+              </button>
+              <button onClick={() => navigate('/wishlist')} className="btn-secondary flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-red-500">favorite</span>
+                My Wishlist
+              </button>
+              {(userData?.is_admin || userData?.role === 'Admin' || ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes(authEmail)) && (
+                <button onClick={() => navigate('/admin')} className="btn-secondary text-[var(--color-primary)] flex items-center justify-center gap-2 border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5">
+                  <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
                   Admin Portal
                 </button>
               )}
-              <button onClick={handleSignOut} className="btn-danger">
-                <span className="material-symbols-outlined">logout</span>
+              <button onClick={handleSignOut} className="btn-danger mt-1">
+                <span className="material-symbols-outlined text-[20px]">logout</span>
                 Sign Out
               </button>
             </div>
@@ -644,7 +658,12 @@ export const PersonalProfile = () => {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-[var(--color-text-secondary)] uppercase block mb-1">Account Status</label>
-                    {userData?.edit_request_status === 'PENDING' ? (
+                    {(userData?.is_admin || userData?.role === 'Admin' || ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes(authEmail)) ? (
+                      <div className="flex items-center gap-1.5 text-[var(--color-primary)]">
+                        <span className="material-symbols-outlined text-[20px]">verified_user</span>
+                        <p className="text-sm font-bold">Verified Administrator</p>
+                      </div>
+                    ) : userData?.edit_request_status === 'PENDING' ? (
                       <div className="flex items-center gap-1.5 text-[var(--color-warning)]">
                         <span className="material-symbols-outlined text-[20px]">hourglass_empty</span>
                         <p className="text-sm font-bold">Pending Verification</p>
@@ -677,7 +696,7 @@ export const PersonalProfile = () => {
                   <span className="material-symbols-outlined text-[var(--color-primary)] text-[24px]">inventory_2</span>
                   <h3 className="text-h3">Recent Activity</h3>
                 </div>
-                <button className="text-[var(--color-primary)] font-bold text-sm hover:underline">View All</button>
+                <button onClick={() => navigate('/products')} className="text-[var(--color-primary)] font-bold text-sm hover:underline">View All</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">

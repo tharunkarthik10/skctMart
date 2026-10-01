@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { PRODUCTS } from '../data/products';
 import { BottomNav } from '../components/BottomNav';
 import apiClient from '../api/client';
+import { getWishlist, toggleWishlist } from '../utils/wishlistStorage';
 
 export const SearchResults = () => {
   const location = useLocation();
@@ -15,6 +16,15 @@ export const SearchResults = () => {
 
   const [allProducts, setAllProducts] = useState(PRODUCTS);
   const [isLoading, setIsLoading] = useState(true);
+  const [wishlistIds, setWishlistIds] = useState(() => getWishlist().map(item => item.id));
+
+  useEffect(() => {
+    const handleWishlistUpdate = () => {
+      setWishlistIds(getWishlist().map(item => item.id));
+    };
+    window.addEventListener('wishlistUpdate', handleWishlistUpdate);
+    return () => window.removeEventListener('wishlistUpdate', handleWishlistUpdate);
+  }, []);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -95,14 +105,16 @@ export const SearchResults = () => {
   return (
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
       {/* Header */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex items-center gap-3 px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-[var(--color-background)] rounded-full transition-colors active:scale-95">
-          <span className="material-symbols-outlined text-[var(--color-text-primary)]">arrow_back</span>
-        </button>
-        <h1 className="text-xl font-bold text-[var(--color-text-primary)] tracking-tight line-clamp-1">{getPageTitle()}</h1>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-[var(--color-background)] rounded-full transition-colors active:scale-95">
+            <span className="material-symbols-outlined text-[var(--color-text-primary)]">arrow_back</span>
+          </button>
+          <h1 className="text-xl font-bold text-[var(--color-text-primary)] tracking-tight line-clamp-1">{getPageTitle()}</h1>
+        </div>
       </header>
 
-      <main className="w-full px-4 md:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
         <div className="mb-6 flex items-center justify-between">
           <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
             Showing {isLoading ? '...' : filteredProducts.length} items
@@ -178,7 +190,13 @@ export const SearchResults = () => {
                         <span className="text-xs font-semibold text-[var(--color-text-secondary)] line-through">{product.marketPrice || product.originalPrice}</span>
                       </div>
                     </div>
-                    <button className="btn-auction w-full mt-1 h-8 md:h-10 text-xs md:text-sm">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/product/${product.id}`);
+                      }}
+                      className="btn-auction w-full mt-1 h-8 md:h-10 text-xs md:text-sm"
+                    >
                       Join Auction
                       <span className="material-symbols-outlined text-[16px] md:text-[18px]">gavel</span>
                     </button>
@@ -203,8 +221,24 @@ export const SearchResults = () => {
                         {product.status || 'Available'}
                       </div>
                     </div>
-                    <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 shadow-sm flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:scale-110 active:scale-95 transition-all z-10" onClick={(e) => e.stopPropagation()}>
-                      <span className="material-symbols-outlined text-[18px]">favorite</span>
+                    <button 
+                      className={`absolute top-3 right-3 w-8 h-8 rounded-full shadow-sm flex items-center justify-center transition-all z-10 ${
+                        wishlistIds.includes(product.id)
+                          ? 'bg-rose-50 text-red-500 scale-105'
+                          : 'bg-white/90 text-[var(--color-text-secondary)] hover:text-red-500 hover:scale-110 active:scale-95'
+                      }`} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleWishlist(product);
+                      }}
+                      title={wishlistIds.includes(product.id) ? "Remove from Wishlist" : "Add to Wishlist"}
+                    >
+                      <span 
+                        className="material-symbols-outlined text-[18px]"
+                        style={wishlistIds.includes(product.id) ? { fontVariationSettings: "'FILL' 1" } : {}}
+                      >
+                        favorite
+                      </span>
                     </button>
                   </div>
                   <div className="p-3 flex flex-col flex-1 gap-1.5 md:gap-2">

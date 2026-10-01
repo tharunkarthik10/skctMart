@@ -14,6 +14,7 @@ import eventRoutes from "./routes/eventRoutes.js";
 import externalEventRoutes from "./routes/externalEventRoutes.js";
 import newsRoutes from "./routes/newsRoutes.js";
 import problemRoutes from "./routes/problemRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { initCronJobs } from "./services/cronService.js";
 import { fetchAndStoreNews } from "./services/newsService.js";
@@ -48,6 +49,7 @@ app.use("/api/events", eventRoutes);
 app.use("/api/external-events", externalEventRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/problems", problemRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
     res.send("🚀 MakerMarT Backend Running");
@@ -56,7 +58,7 @@ app.get("/", (req, res) => {
 // Centralized Error Handler (must be after routes)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

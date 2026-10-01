@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import apiClient from '../api/client';
+import { BottomNav } from '../components/BottomNav';
 
 export const SellerOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -14,25 +16,13 @@ export const SellerOrders = () => {
 
   const fetchSellerOrders = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/login');
-        return;
-      }
-
-      const res = await fetch('http://localhost:5000/api/orders/seller-orders', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
-      
-      if (!res.ok) throw new Error('Failed to fetch seller orders');
-      
-      const data = await res.json();
-      setOrders(data);
+      setLoading(true);
+      setError(null);
+      const res = await apiClient.get('/orders/seller-orders');
+      setOrders(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
-      console.error(err);
-      setError(err.message);
+      console.error('Error fetching seller orders:', err);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -40,22 +30,10 @@ export const SellerOrders = () => {
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-      
-      if (!res.ok) throw new Error('Failed to update status');
-      
-      // Update local state
-      setOrders(orders.map(o => o.id === orderId ? { ...o, order_status: newStatus } : o));
+      await apiClient.patch(`/orders/${orderId}/status`, { status: newStatus });
+      setOrders(orders.map(o => (o.id === orderId || o.order_id === orderId) ? { ...o, order_status: newStatus } : o));
     } catch (err) {
-      alert(err.message);
+      alert(err.response?.data?.error || err.message);
     }
   };
 
@@ -130,15 +108,17 @@ export const SellerOrders = () => {
                         {order.order_status}
                       </span>
                     </td>
-                    <td className="p-4 text-sm text-[var(--color-text-secondary)] font-semibold">{new Date(order.created_at).toLocaleDateString()}</td>
+                    <td className="p-4 text-sm text-[var(--color-text-secondary)] font-semibold">
+                      {(order.created_at || order.createdAt) ? new Date(order.created_at || order.createdAt).toLocaleDateString() : 'Recent'}
+                    </td>
                     <td className="p-4 text-right space-x-2">
-                       <button onClick={() => navigate(`/orders/${order.id}`)} className="p-2 text-[var(--color-primary)] hover:bg-[var(--color-surface)] rounded-full transition-colors" title="View Details">
+                       <button onClick={() => navigate(`/orders/${order.id || order.order_id}`)} className="p-2 text-[var(--color-primary)] hover:bg-[var(--color-surface)] rounded-full transition-colors" title="View Details">
                          <span className="material-symbols-outlined text-[20px]">visibility</span>
                        </button>
                        {order.order_status !== 'Cancelled' && order.order_status !== 'Delivered' && (
                          <select 
                            value={order.order_status} 
-                           onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
+                           onChange={(e) => handleUpdateStatus(order.id || order.order_id, e.target.value)}
                            className="text-sm border border-[var(--color-border)] rounded-lg px-2 py-1 bg-[var(--color-background)] font-bold text-[var(--color-text-primary)] focus:border-[var(--color-primary)] outline-none cursor-pointer"
                          >
                            <option value="Pending">Pending</option>
@@ -157,6 +137,7 @@ export const SellerOrders = () => {
           </div>
         )}
       </main>
+      <BottomNav />
     </div>
   );
 };

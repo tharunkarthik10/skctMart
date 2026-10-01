@@ -23,7 +23,8 @@ export const Login = () => {
     setLoading(true);
     setError(null);
 
-    const isAdminEmail = email === '727824tuio046@skct.edu.in';
+    const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+    const isAdminEmail = ADMIN_EMAILS.includes(email);
     const isCollegeEmail = email.endsWith('.edu') || email.endsWith('.edu.in') || isAdminEmail;
     if (!isCollegeEmail) {
       setError('Only college domains (like @skct.edu.in or .edu) or Admin emails are allowed.');
@@ -88,8 +89,9 @@ export const Login = () => {
   };
 
   const handleDemoLogin = () => {
-    const isAdmin = email === '727824tuio046@skct.edu.in';
-    const userEmail = isAdmin ? '727824tuio046@skct.edu.in' : (email || '727824tuio032@skct.edu.in');
+    const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+    const isAdmin = ADMIN_EMAILS.includes(email);
+    const userEmail = isAdmin ? (email || 'tharunkarthikav21@gmail.com') : (email || '727824tuio032@skct.edu.in');
     const userId = isAdmin ? 'admin-user-001' : '87650734-b92a-4465-b397-325f392c0267';
     
     const demoSession = {
@@ -128,12 +130,14 @@ export const Login = () => {
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[var(--color-primary)]/10 rounded-full mix-blend-multiply filter blur-3xl opacity-50 translate-y-1/4 -translate-x-1/4 pointer-events-none"></div>
       
       {/* Top Navigation Bar */}
-      <header className="bg-[var(--color-surface)] sticky top-0 z-50 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} aria-label="Go back" className="btn-icon">
-            <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Login</h1>
+      <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate('/')} aria-label="Go back" className="btn-icon">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Login</h1>
+          </div>
         </div>
       </header>
       

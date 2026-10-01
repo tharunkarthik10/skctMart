@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import apiClient from '../api/client';
+import { BottomNav } from '../components/BottomNav';
 
 export const OrderDetails = () => {
   const { id } = useParams();
@@ -12,28 +14,13 @@ export const OrderDetails = () => {
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          navigate('/login');
-          return;
-        }
-
-        const res = await fetch(`http://localhost:5000/api/orders/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        });
-        
-        if (!res.ok) {
-          if (res.status === 403) throw new Error('You do not have permission to view this order.');
-          throw new Error('Failed to fetch order details.');
-        }
-        
-        const data = await res.json();
-        setOrder(data);
+        setLoading(true);
+        setError(null);
+        const res = await apiClient.get(`/orders/${id}`);
+        setOrder(res.data);
       } catch (err) {
-        console.error(err);
-        setError(err.message);
+        console.error('Error fetching order:', err);
+        setError(err.response?.data?.error || err.message || 'Failed to fetch order details.');
       } finally {
         setLoading(false);
       }
@@ -79,8 +66,8 @@ export const OrderDetails = () => {
         {/* Order Header */}
         <div className="card-standard p-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-h2 mb-1">Order #{order.order_id.substring(0,10)}...</h2>
-            <p className="text-sm text-[var(--color-text-secondary)] font-medium">Placed on {new Date(order.created_at).toLocaleString()}</p>
+            <h2 className="text-h2 mb-1">Order #{(order.order_id || order.id || '').substring(0, 10)}...</h2>
+            <p className="text-sm text-[var(--color-text-secondary)] font-medium">Placed on {(order.created_at || order.createdAt) ? new Date(order.created_at || order.createdAt).toLocaleString() : 'Recently'}</p>
           </div>
           {isCancelled ? (
             <span className="px-4 py-2 bg-[var(--color-danger)]/10 text-[var(--color-danger)] border border-[var(--color-danger)]/20 rounded-xl font-bold flex items-center gap-2 shadow-sm">
@@ -164,6 +151,7 @@ export const OrderDetails = () => {
         </div>
 
       </main>
+      <BottomNav />
     </div>
   );
 };
