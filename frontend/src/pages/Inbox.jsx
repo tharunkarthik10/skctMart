@@ -33,10 +33,55 @@ export const Inbox = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [userChatIds, setUserChatIds] = useState([]);
+  const [orderActions, setOrderActions] = useState({});
+  const [actionPendingId, setActionPendingId] = useState(null);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const chatThreadRef = useRef(null);
+
+  const handleOrderAction = async (action, orderData, msgId) => {
+    const orderKey = orderData.orderId || msgId;
+    if (action === 'cancel') {
+      const confirmCancel = window.confirm("Are you sure you want to cancel this sale and relist the item as available?");
+      if (!confirmCancel) return;
+    }
+    try {
+      setActionPendingId(orderKey);
+      const res = await apiClient.post('/orders/respond', {
+        action,
+        orderId: orderData.orderId,
+        productId: orderData.productId || chatInfo?.component_id,
+        chatId: chatId
+      });
+
+      if (res.data.success) {
+        setOrderActions(prev => ({ ...prev, [orderKey]: action }));
+        if (res.data.message) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === res.data.message.id)) return prev;
+            return [...prev, res.data.message];
+          });
+        }
+        if (action === 'sell' && chatInfo?.components) {
+          setChatInfo(prev => ({
+            ...prev,
+            components: { ...prev.components, status: 'SOLD' }
+          }));
+        } else if (action === 'cancel' && chatInfo?.components) {
+          setChatInfo(prev => ({
+            ...prev,
+            components: { ...prev.components, status: 'ACTIVE' }
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Order response action error:', err);
+      alert(err.response?.data?.error || 'Failed to process order action');
+    } finally {
+      setActionPendingId(null);
+    }
+  };
 
   // Helper for user avatar background coloring
   const getAvatarBg = (name) => {
@@ -53,6 +98,33 @@ export const Inbox = () => {
     const code = (name || 'U').charCodeAt(0);
     return colors[code % colors.length];
   };
+
+  // Helper to parse order card metadata from message content
+  const parseOrderCard = (content) => {
+    if (!content || typeof content !== 'string') return null;
+    if (content.startsWith('{') && content.includes('"ORDER_CONFIRMATION"')) {
+      try {
+        return JSON.parse(content);
+      } catch (e) {
+        return null;
+      }
+    }
+    if (content.includes('New Order Placed') && (content.includes('Cash on Delivery') || content.includes('purchased'))) {
+      const productMatch = content.match(/"([^"]+)"/);
+      const priceMatch = content.match(/₹([0-9]+)/);
+      const meetupMatch = content.match(/(?:Preferred Meetup|Meetup):\s*([^\n]+)/);
+      return {
+        type: 'ORDER_CONFIRMATION',
+        productName: productMatch ? productMatch[1] : null,
+        grandTotal: priceMatch ? priceMatch[1] : null,
+        deliveryAddress: meetupMatch ? meetupMatch[1] : null,
+        paymentMethod: 'Cash on Delivery',
+        note: content
+      };
+    }
+    return null;
+  };
+
 
   // Helper for formatting times in message bubbles
   const formatMsgTime = (dateStr) => {
@@ -567,9 +639,19 @@ export const Inbox = () => {
                 
                 const productTitle = chat.components?.title || 'Unknown Item';
                 const latestMessage = chat.messages?.[0] || null;
-                const snippet = latestMessage
-                  ? latestMessage.content.startsWith('http') ? '📷 Photo' : latestMessage.content
-                  : 'Click to start chatting.';
+                let snippet = 'Click to start chatting.';
+                if (latestMessage) {
+                  if (latestMessage.content.startsWith('http')) {
+                    snippet = '📷 Photo';
+                  } else {
+                    const parsedOrder = parseOrderCard(latestMessage.content);
+                    if (parsedOrder) {
+                      snippet = `📦 Order: ${parsedOrder.productName || productTitle} (₹${parsedOrder.grandTotal || ''})`;
+                    } else {
+                      snippet = latestMessage.content;
+                    }
+                  }
+                }
                 
                 const timestamp = latestMessage ? formatChatDate(latestMessage.created_at) : formatChatDate(chat.created_at);
                 
@@ -722,6 +804,43 @@ export const Inbox = () => {
                 <span className="material-symbols-outlined text-base">verified_user</span>
                 <span>Security Notice: Meet in safe campus zones. Chats expire in 15 days.</span>
               </div>
+
+              {/* Linked Product Banner */}
+              {chatInfo?.components && (
+                <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {chatInfo.components.image_url ? (
+                      <img 
+                        src={getPremiumImageUrl(chatInfo.components.image_url)} 
+                        alt={chatInfo.components.title} 
+                        className="w-9 h-9 rounded-lg object-cover border border-[var(--color-border)] shrink-0 bg-white"
+                        onError={(e) => { e.target.src = 'https://placehold.co/200x200/F8FAFC/46A857?text=Product'; }}
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)] flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-[18px]">memory</span>
+                      </div>
+                    )}
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-[var(--color-text-primary)] truncate">
+                        {chatInfo.components.title}
+                      </span>
+                      <span className="text-[11px] font-black text-[var(--color-primary)]">
+                        ₹{chatInfo.components.price}
+                      </span>
+                    </div>
+                  </div>
+                  {chatInfo.component_id && (
+                    <Link 
+                      to={`/product/${chatInfo.component_id}`}
+                      className="shrink-0 text-[11px] font-bold px-3 py-1 rounded-xl bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] active:scale-95 transition-all shadow-xs flex items-center gap-1"
+                    >
+                      <span>View</span>
+                      <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                    </Link>
+                  )}
+                </div>
+              )}
  
               {/* Chat messages list wrapper with subtle geometric pattern */}
               <div 
@@ -786,19 +905,243 @@ export const Inbox = () => {
                                 paddingRight: '48px' 
                               }}
                             >
-                              {/* Content check if image url */}
-                              {msg.content.startsWith('http') && (msg.content.includes('r2.dev') || msg.content.includes('r2.cloudflarestorage.com')) ? (
-                                <div className="rounded-lg overflow-hidden border border-[var(--color-border)] bg-black/5 mb-1 max-w-full">
-                                  <img 
-                                    src={getPremiumImageUrl(msg.content)} 
-                                    alt="Chat attachment" 
-                                    className="max-w-full max-h-[300px] object-contain hover:scale-[1.01] transition-transform duration-200 cursor-zoom-in"
-                                    onClick={() => window.open(msg.content, '_blank')}
-                                  />
-                                </div>
-                              ) : (
-                                <p className="font-semibold whitespace-pre-wrap">{msg.content}</p>
-                              )}
+                              {(() => {
+                                const orderData = parseOrderCard(msg.content);
+                                if (orderData) {
+                                  const prodImg = orderData.productImage || chatInfo?.components?.image_url;
+                                  const prodTitle = orderData.productName || chatInfo?.components?.title || 'Component';
+                                  const prodPrice = orderData.grandTotal || chatInfo?.components?.price;
+                                  const prodQty = orderData.quantity || 1;
+                                  const targetCompId = orderData.productId || chatInfo?.component_id;
+                                  const orderKey = orderData.orderId || msg.id;
+
+                                  // Determine status: local user interaction takes priority, then message history
+                                  let currentActionState = orderActions[orderKey];
+                                  if (!currentActionState) {
+                                    const statusMessages = messages.filter(m => 
+                                      m.content && (
+                                        m.content.includes('Deal Confirmed') || 
+                                        m.content.includes('Sale Cancelled') || 
+                                        m.content.includes('cancelled this sale') || 
+                                        m.content.includes('unable to fulfill') || 
+                                        m.content.includes('unavailable. Apologies') ||
+                                        (m.content.includes('marked') && m.content.includes('Sold'))
+                                      )
+                                    );
+                                    if (statusMessages.length > 0) {
+                                      const lastMsg = statusMessages[statusMessages.length - 1];
+                                      if (lastMsg.content.includes('Sale Cancelled') || lastMsg.content.includes('cancelled this sale')) {
+                                        currentActionState = 'cancel';
+                                      } else if (lastMsg.content.includes('Deal Confirmed') || (lastMsg.content.includes('marked') && lastMsg.content.includes('Sold'))) {
+                                        currentActionState = 'sell';
+                                      } else if (lastMsg.content.includes('unable to fulfill') || lastMsg.content.includes('unavailable. Apologies')) {
+                                        currentActionState = 'ignore';
+                                      }
+                                    } else if (chatInfo?.components?.status === 'SOLD') {
+                                      currentActionState = 'sell';
+                                    }
+                                  }
+
+                                  const hasAccepted = currentActionState === 'sell';
+                                  const hasCancelled = currentActionState === 'cancel';
+                                  const hasIgnored = currentActionState === 'ignore';
+
+                                  return (
+                                    <div className="space-y-3 min-w-[240px] sm:min-w-[290px] pt-1">
+                                      {/* Order Header Badge */}
+                                      <div className="flex items-center justify-between pb-2.5 border-b border-black/10 dark:border-white/10">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`material-symbols-outlined text-[18px] ${isMe ? 'text-white' : 'text-[var(--color-primary)]'}`}>
+                                            shopping_bag
+                                          </span>
+                                          <span className="text-xs font-black tracking-wide uppercase">Order Confirmed</span>
+                                        </div>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isMe ? 'bg-white/20 text-white' : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'}`}>
+                                          COD
+                                        </span>
+                                      </div>
+
+                                      {/* Embedded Product Card */}
+                                      <div className={`p-2.5 rounded-xl flex items-center gap-3 border transition-all ${
+                                        isMe 
+                                          ? 'bg-white/10 border-white/20 text-white' 
+                                          : 'bg-[var(--color-background)] border-[var(--color-border)] shadow-sm'
+                                      }`}>
+                                        {prodImg ? (
+                                          <img 
+                                            src={getPremiumImageUrl(prodImg)} 
+                                            alt={prodTitle} 
+                                            className="w-14 h-14 rounded-lg object-cover border border-black/10 shrink-0 bg-white"
+                                            onError={(e) => { e.target.src = 'https://placehold.co/200x200/F8FAFC/46A857?text=Product'; }}
+                                          />
+                                        ) : (
+                                          <div className={`w-14 h-14 rounded-lg flex items-center justify-center shrink-0 ${isMe ? 'bg-white/15' : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'}`}>
+                                            <span className="material-symbols-outlined text-[24px]">memory</span>
+                                          </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className="font-bold text-sm truncate leading-snug">
+                                            {prodTitle}
+                                          </h4>
+                                          <div className="flex items-baseline gap-2 mt-0.5">
+                                            <span className={`text-sm font-black ${isMe ? 'text-white' : 'text-[var(--color-primary)]'}`}>
+                                              ₹{prodPrice}
+                                            </span>
+                                            <span className={`text-[11px] font-semibold ${isMe ? 'text-white/75' : 'text-[var(--color-text-secondary)]'}`}>
+                                              • Qty: {prodQty}
+                                            </span>
+                                          </div>
+                                          {targetCompId && (
+                                            <Link 
+                                              to={`/product/${targetCompId}`}
+                                              className={`inline-flex items-center gap-1 text-[10px] font-bold mt-1 underline hover:opacity-85 transition-opacity ${isMe ? 'text-white' : 'text-[var(--color-primary)]'}`}
+                                            >
+                                              <span>View Product</span>
+                                              <span className="material-symbols-outlined text-[11px]">open_in_new</span>
+                                            </Link>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Meetup Address info */}
+                                      {orderData.deliveryAddress && (
+                                        <div className={`px-2.5 py-1.5 rounded-lg text-xs flex items-start gap-2 ${isMe ? 'bg-black/15' : 'bg-[var(--color-surface)] border border-[var(--color-border)]'}`}>
+                                          <span className={`material-symbols-outlined text-[16px] shrink-0 mt-0.5 ${isMe ? 'text-white/90' : 'text-[var(--color-primary)]'}`}>location_on</span>
+                                          <div className="min-w-0">
+                                            <span className={`font-bold block text-[9px] uppercase tracking-wider ${isMe ? 'text-white/70' : 'text-[var(--color-text-secondary)]'}`}>Meetup Spot</span>
+                                            <span className="font-semibold break-words leading-tight block text-[11px]">{orderData.deliveryAddress}</span>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Note / Message */}
+                                      {orderData.note && (
+                                        <p className="font-medium text-xs leading-relaxed whitespace-pre-wrap pt-0.5 opacity-95">
+                                          {orderData.note}
+                                        </p>
+                                      )}
+
+                                      {/* Seller Action Buttons or Status Badge */}
+                                      {!isMe && (
+                                        <div className="pt-2.5 border-t border-[var(--color-border)]">
+                                          {hasAccepted ? (
+                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold">
+                                              <div className="flex items-center gap-1.5 px-1.5 select-none py-0.5">
+                                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                                <span>Marked as Sold & Accepted</span>
+                                              </div>
+                                              <button
+                                                onClick={() => handleOrderAction('cancel', orderData, msg.id)}
+                                                disabled={actionPendingId === orderKey}
+                                                className="py-1 px-2.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-950 dark:hover:bg-red-900/60 dark:text-red-300 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs"
+                                                title="Cancel this sale and relist item as available"
+                                              >
+                                                {actionPendingId === orderKey ? (
+                                                  <span className="material-symbols-outlined animate-spin text-[13px]">progress_activity</span>
+                                                ) : (
+                                                  <span className="material-symbols-outlined text-[13px]">cancel</span>
+                                                )}
+                                                <span>Cancel Sale</span>
+                                              </button>
+                                            </div>
+                                          ) : hasCancelled ? (
+                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 text-xs font-bold">
+                                              <div className="flex items-center gap-1.5 px-1.5 select-none py-0.5">
+                                                <span className="material-symbols-outlined text-[16px]">info</span>
+                                                <span>Sale Cancelled (Item Relisted)</span>
+                                              </div>
+                                              <button
+                                                onClick={() => handleOrderAction('sell', orderData, msg.id)}
+                                                disabled={actionPendingId === orderKey}
+                                                className="py-1 px-2.5 rounded-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer disabled:opacity-50 shadow-xs"
+                                                title="Mark as Sold again"
+                                              >
+                                                {actionPendingId === orderKey ? (
+                                                  <span className="material-symbols-outlined animate-spin text-[13px]">progress_activity</span>
+                                                ) : (
+                                                  <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                                )}
+                                                <span>Sell Again</span>
+                                              </button>
+                                            </div>
+                                          ) : hasIgnored ? (
+                                            <div className="flex items-center gap-1.5 py-1 px-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-xs font-bold select-none">
+                                              <span className="material-symbols-outlined text-[16px]">close</span>
+                                              <span>Order Ignored / Declined</span>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-2">
+                                              <button
+                                                onClick={() => handleOrderAction('sell', orderData, msg.id)}
+                                                disabled={actionPendingId === orderKey}
+                                                className="flex-1 py-2 px-3.5 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] active:scale-95 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                                                title="Mark product as Sold and accept order"
+                                              >
+                                                {actionPendingId === orderKey ? (
+                                                  <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+                                                ) : (
+                                                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                                )}
+                                                <span>Sell</span>
+                                              </button>
+                                              <button
+                                                onClick={() => handleOrderAction('ignore', orderData, msg.id)}
+                                                disabled={actionPendingId === orderKey}
+                                                className="py-2 px-4 rounded-xl bg-red-50 hover:bg-red-100 active:scale-95 text-red-600 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-400 border border-red-200 dark:border-red-900/50 text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                                                title="Decline order and send automated apology message"
+                                              >
+                                                <span className="material-symbols-outlined text-[16px]">close</span>
+                                                <span>Ignore</span>
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Buyer Side Status Indicator */}
+                                      {isMe && hasAccepted && (
+                                        <div className="pt-2 border-t border-white/15">
+                                          <span className="text-[11px] font-bold text-emerald-200 flex items-center gap-1 select-none">
+                                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                            Seller accepted & marked as Sold
+                                          </span>
+                                        </div>
+                                      )}
+                                      {isMe && hasCancelled && (
+                                        <div className="pt-2 border-t border-white/15">
+                                          <span className="text-[11px] font-bold text-amber-200 flex items-center gap-1 select-none">
+                                            <span className="material-symbols-outlined text-[14px]">cancel</span>
+                                            Sale cancelled by seller (Item relisted as available)
+                                          </span>
+                                        </div>
+                                      )}
+                                      {isMe && hasIgnored && (
+                                        <div className="pt-2 border-t border-white/15">
+                                          <span className="text-[11px] font-bold text-red-200 flex items-center gap-1 select-none">
+                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                            Seller declined this request
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                if (msg.content.startsWith('http') && (msg.content.includes('r2.dev') || msg.content.includes('r2.cloudflarestorage.com'))) {
+                                  return (
+                                    <div className="rounded-lg overflow-hidden border border-[var(--color-border)] bg-black/5 mb-1 max-w-full">
+                                      <img 
+                                        src={getPremiumImageUrl(msg.content)} 
+                                        alt="Chat attachment" 
+                                        className="max-w-full max-h-[300px] object-contain hover:scale-[1.01] transition-transform duration-200 cursor-zoom-in"
+                                        onClick={() => window.open(msg.content, '_blank')}
+                                      />
+                                    </div>
+                                  );
+                                }
+
+                                return <p className="font-semibold whitespace-pre-wrap">{msg.content}</p>;
+                              })()}
                               
                               {/* Bubble metadata bottom right */}
                               <div className="absolute bottom-1 right-3 flex items-center gap-1 select-none">

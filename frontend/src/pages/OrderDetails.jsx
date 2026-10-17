@@ -52,7 +52,7 @@ export const OrderDetails = () => {
 
   return (
     <div className="bg-[var(--color-background)] min-h-screen pb-24 font-sans text-[var(--color-text-primary)]">
-      <header className="bg-[var(--color-surface)] sticky top-0 z-40 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
+      <header className="bg-[var(--color-surface)] sticky top-0 z-40 flex justify-between items-center px-3 md:px-[22px] w-full h-16 border-b border-[var(--color-border)] shadow-sm">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="btn-icon">
             <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
@@ -61,7 +61,7 @@ export const OrderDetails = () => {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 md:px-8 pt-8 space-y-6">
+      <main className="w-full max-w-[88vw] 2xl:max-w-[1200px] mx-auto px-3 md:px-[22px] pt-8 space-y-6">
         
         {/* Order Header */}
         <div className="card-standard p-6 flex flex-wrap items-center justify-between gap-4">

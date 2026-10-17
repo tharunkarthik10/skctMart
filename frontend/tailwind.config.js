@@ -44,6 +44,11 @@ export default {
         "3xl": "1.5rem",
         "full": "9999px"
       },
+      maxWidth: {
+        '7xl': '88rem',
+        '6xl': '80rem',
+        '4xl': '64rem',
+      },
       fontFamily: {
         "sans": ["Inter", "sans-serif"],
         "mono": ["JetBrains Mono", "monospace"],

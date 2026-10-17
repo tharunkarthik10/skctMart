@@ -4,6 +4,7 @@ import { BottomNav } from '../components/BottomNav';
 import { PRODUCTS } from '../data/products';
 import apiClient from '../api/client';
 import { getWishlist, toggleWishlist } from '../utils/wishlistStorage';
+import { getSellerName, getProductDatePosted } from '../utils/productUtils';
 
 const BANNERS = [
   {
@@ -110,8 +111,12 @@ export const Home = () => {
           condition: comp.condition,
           status: comp.status === 'ACTIVE' ? 'Available' : 'Sold',
           rating: '5.0',
-          college: 'SKCT',
-          time: 'Just now',
+          college: comp.seller?.college || 'SKCT',
+          seller: comp.seller,
+          sellerName: getSellerName(comp),
+          createdAt: comp.createdAt,
+          datePosted: getProductDatePosted(comp),
+          time: getProductDatePosted(comp),
           description: comp.why_sell || comp.tech_specs || '',
           category: comp.category,
           isAuction: comp.listing_type === 'AUCTION',
@@ -133,9 +138,9 @@ export const Home = () => {
     return 'Browse';
   };
 
-  const allRecent = components.filter(c => !c.isAuction);
+  const allRecent = components.filter(c => !c.isAuction && c.status !== 'Sold');
 
-  const allAuctions = components.filter(c => c.isAuction);
+  const allAuctions = components.filter(c => c.isAuction && c.status !== 'Sold');
 
   const displayBanners = events.length > 0 ? events.map(e => ({
     id: e.id,
@@ -196,7 +201,7 @@ export const Home = () => {
 
       {/* TopAppBar */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-[var(--color-primary)] flex items-center justify-center text-white font-black text-xl">M</div>
             <div className="flex flex-col">
@@ -286,7 +291,7 @@ export const Home = () => {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-12">
+      <main className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] py-6 space-y-12">
         {/* Hero Section */}
         <section className="animate-in fade-in duration-700">
           {/* Main Hero Card */}
@@ -492,7 +497,7 @@ export const Home = () => {
               <div
                 key={product.id}
                 onClick={() => navigate(`/product/${product.id}`)}
-                className="snap-start shrink-0 w-[240px] card-interactive flex flex-col overflow-hidden group"
+                className="snap-start shrink-0 w-[280px] card-interactive flex flex-col overflow-hidden group"
               >
                 {/* Image Section */}
                 <div className="w-full aspect-square bg-[var(--color-background)] relative overflow-hidden flex items-center justify-center border-b border-[var(--color-border)]">
@@ -533,14 +538,14 @@ export const Home = () => {
                 </div>
 
                 {/* Details Section */}
-                <div className="p-4 flex flex-col flex-1 gap-2">
+                <div className="p-4 flex flex-col flex-1 gap-2.5">
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider bg-[var(--color-background)] px-2 py-0.5 rounded border border-[var(--color-border)]">
                       {product.condition}
                     </div>
-                    <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-medium">
-                      <span className="material-symbols-outlined text-[14px]">schedule</span>
-                      {product.time}
+                    <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-medium" title="Date of Posted">
+                      <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                      {product.datePosted || getProductDatePosted(product)}
                     </div>
                   </div>
 
@@ -553,15 +558,15 @@ export const Home = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 mt-2 pt-3 border-t border-[var(--color-border)]">
-                    <div className="flex items-center gap-1 text-xs font-bold text-[var(--color-text-primary)]">
-                      <span className="material-symbols-outlined text-[16px] text-[var(--color-primary)]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      {product.rating}
+                  {/* Seller Name & College */}
+                  <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)] pt-2.5 mt-auto border-t border-[var(--color-border)] font-medium">
+                    <div className="flex items-center gap-1.5 truncate max-w-[130px]" title={`Seller: ${product.sellerName || getSellerName(product)}`}>
+                      <span className="material-symbols-outlined text-[15px] text-[var(--color-primary)]">person</span>
+                      <span className="truncate text-[var(--color-text-primary)] font-semibold">{product.sellerName || getSellerName(product)}</span>
                     </div>
-                    <div className="w-1 h-1 rounded-full bg-[var(--color-border)]"></div>
-                    <div className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)] font-medium line-clamp-1">
+                    <div className="flex items-center gap-1 text-[var(--color-text-secondary)] font-medium shrink-0">
                       <span className="material-symbols-outlined text-[14px]">school</span>
-                      {product.college}
+                      <span>{product.college || 'SKCT'}</span>
                     </div>
                   </div>
                 </div>
@@ -588,7 +593,7 @@ export const Home = () => {
               <div
                 key={auction.id}
                 onClick={() => navigate(`/product/${auction.id}`)}
-                className="snap-start shrink-0 w-[260px] card-auction flex flex-col group"
+                className="snap-start shrink-0 w-[300px] card-auction flex flex-col group"
               >
                 {/* Gold Accent Top Border */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-[var(--color-primary)] z-20"></div>
@@ -619,12 +624,24 @@ export const Home = () => {
                 </div>
 
                 {/* Details Section */}
-                <div className="p-4 flex flex-col flex-1 gap-3">
+                <div className="p-4 flex flex-col flex-1 gap-2.5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">{auction.name}</h3>
                     <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-semibold bg-[var(--color-background)] px-2 py-0.5 rounded border border-[var(--color-border)]">
                       <span className="material-symbols-outlined text-[14px]">group</span>
-                      {auction.bidders}
+                      {auction.bidders || '3'}
+                    </div>
+                  </div>
+
+                  {/* Seller Name and Date Posted */}
+                  <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)] font-medium">
+                    <div className="flex items-center gap-1.5 truncate max-w-[130px]" title={`Seller: ${auction.sellerName || getSellerName(auction)}`}>
+                      <span className="material-symbols-outlined text-[15px] text-[var(--color-primary)]">person</span>
+                      <span className="truncate text-[var(--color-text-primary)] font-semibold">{auction.sellerName || getSellerName(auction)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0" title="Date of Posted">
+                      <span className="material-symbols-outlined text-[13px]">calendar_today</span>
+                      <span>{auction.datePosted || getProductDatePosted(auction)}</span>
                     </div>
                   </div>
 

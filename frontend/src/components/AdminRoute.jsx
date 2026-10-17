@@ -44,8 +44,9 @@ export const AdminRoute = () => {
         }
           
         const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
-        const bypass = ADMIN_EMAILS.includes(user.email) || user.id === 'admin-user-001' || user.id === 'admin-001';
-        if (bypass || (!error && profile && profile.is_admin)) {
+        const userEmail = (user?.email || '').toLowerCase().trim();
+        const isAuthorizedAdmin = ADMIN_EMAILS.includes(userEmail) || user.id === 'admin-user-001' || user.id === 'admin-001';
+        if (isAuthorizedAdmin) {
           if (isMounted) setIsAdmin(true);
         } else {
           if (isMounted) setIsAdmin(false);

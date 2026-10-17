@@ -132,7 +132,7 @@ export const Explore = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto py-6 px-4 md:px-8 space-y-8">
+      <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto py-6 px-3 md:px-[22px] space-y-8">
         {/* Tech Daily News */}
         <section>
           <div className="flex items-center justify-between mb-4 mt-2 pr-2">

@@ -1,3 +1,5 @@
+import { getSellerName, getProductDatePosted } from './productUtils';
+
 // Shared utility for managing user wishlist
 const WISHLIST_KEY = 'wishlist';
 
@@ -31,6 +33,8 @@ export const toggleWishlist = (product) => {
       image: product.image || (product.images && product.images[0]) || 'https://picsum.photos/800/800?random=99',
       category: product.category,
       condition: product.condition,
+      sellerName: getSellerName(product),
+      datePosted: getProductDatePosted(product),
       addedAt: new Date().toISOString()
     };
     updated = [itemToAdd, ...list];

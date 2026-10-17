@@ -52,7 +52,7 @@ export const SellerOrders = () => {
 
   return (
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24">
-      <header className="bg-[var(--color-surface)] sticky top-0 z-40 flex justify-between items-center px-4 md:px-8 w-full h-16 border-b border-[var(--color-border)] shadow-sm">
+      <header className="bg-[var(--color-surface)] sticky top-0 z-40 flex justify-between items-center px-3 md:px-[22px] w-full h-16 border-b border-[var(--color-border)] shadow-sm">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="btn-icon">
             <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
@@ -61,7 +61,7 @@ export const SellerOrders = () => {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-8 pt-8">
+      <main className="w-full max-w-[90vw] 2xl:max-w-[1400px] mx-auto px-3 md:px-[22px] pt-8">
         <h2 className="text-h2 mb-6">Order Management</h2>
         
         {loading ? (

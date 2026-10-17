@@ -65,33 +65,43 @@ export const updateUser = async (req, res, next) => {
         if (!requester) {
             requester = currentUser;
         }
-        const isAdmin = requester?.is_admin || requester?.role === 'Admin';
+        const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+        const isRequesterAdmin = ADMIN_EMAILS.includes((req.user?.email || requester?.email || '').toLowerCase().trim()) || req.user?.id === 'admin-user-001';
         
         // Security check
-        if (req.user.id !== id && !isAdmin) {
+        if (req.user.id !== id && !isRequesterAdmin) {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        // Lock & Limit enforcement for regular user profile updates
-        const isSelfProfileEdit = req.user.id === id && !isAdmin;
-        const isChangingAccountDetails = Object.keys(sanitizedUpdates).some(k => 
+        // Lock & Limit enforcement for regular student profile updates
+        const isSelfProfileEdit = req.user.id === id && !isRequesterAdmin;
+        const isChangingAccountDetails = Object.keys(updates).some(k => 
             ['name', 'mobile_number', 'register_no', 'year', 'department', 'classroom_no'].includes(k)
         );
 
         if (isSelfProfileEdit) {
             if (isChangingAccountDetails) {
+                let prevPending = {};
+                if (currentUser.pending_profile_updates) {
+                    try {
+                        prevPending = typeof currentUser.pending_profile_updates === 'string'
+                            ? JSON.parse(currentUser.pending_profile_updates)
+                            : currentUser.pending_profile_updates;
+                    } catch (e) {}
+                }
+
                 const pendingProfile = {
-                    name: sanitizedUpdates.name !== undefined ? sanitizedUpdates.name : (currentUser.name || ''),
-                    mobile_number: sanitizedUpdates.mobile_number !== undefined ? sanitizedUpdates.mobile_number : (currentUser.mobile_number || ''),
-                    register_no: sanitizedUpdates.register_no !== undefined ? sanitizedUpdates.register_no : (currentUser.register_no || ''),
-                    year: sanitizedUpdates.year !== undefined ? sanitizedUpdates.year : (currentUser.year || ''),
-                    department: sanitizedUpdates.department !== undefined ? sanitizedUpdates.department : (currentUser.department || ''),
-                    classroom_no: sanitizedUpdates.classroom_no !== undefined ? sanitizedUpdates.classroom_no : (currentUser.classroom_no || ''),
+                    name: updates.name !== undefined ? updates.name : (prevPending.name || currentUser.name || ''),
+                    mobile_number: updates.mobile_number !== undefined ? updates.mobile_number : (prevPending.mobile_number || currentUser.mobile_number || ''),
+                    register_no: updates.register_no !== undefined ? updates.register_no : (prevPending.register_no || currentUser.register_no || ''),
+                    year: updates.year !== undefined ? updates.year : (prevPending.year || currentUser.year || ''),
+                    department: updates.department !== undefined ? updates.department : (prevPending.department || currentUser.department || ''),
+                    classroom_no: updates.classroom_no !== undefined ? updates.classroom_no : (prevPending.classroom_no || currentUser.classroom_no || ''),
                 };
 
                 sanitizedUpdates.pending_profile_updates = JSON.stringify(pendingProfile);
 
-                // Strip the 6 fields from sanitizedUpdates so they aren't written to the User table directly
+                // Strip the 6 fields from sanitizedUpdates so they aren't written to the verified User table directly before admin approval
                 delete sanitizedUpdates.name;
                 delete sanitizedUpdates.mobile_number;
                 delete sanitizedUpdates.register_no;
@@ -101,7 +111,6 @@ export const updateUser = async (req, res, next) => {
 
                 sanitizedUpdates.is_profile_verified = false;
                 sanitizedUpdates.edit_request_status = 'PENDING';
-                sanitizedUpdates.admin_suggestion = null;
                 sanitizedUpdates.last_edit_at = new Date();
             }
         }
@@ -139,8 +148,9 @@ export const approveEditAccess = async (req, res, next) => {
         const { id } = req.params;
         
         const requester = await UserService.getUserById(req.user.id);
-        const isAdmin = requester?.is_admin || requester?.role === 'Admin';
-        if (!isAdmin) return res.status(403).json({ error: 'Forbidden: Admin access required' });
+        const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+        const isRequesterAdmin = ADMIN_EMAILS.includes((req.user?.email || requester?.email || '').toLowerCase().trim()) || req.user?.id === 'admin-user-001';
+        if (!isRequesterAdmin) return res.status(403).json({ error: 'Forbidden: Admin access required' });
         
         const targetUser = await UserService.getUserById(id);
         if (!targetUser) return res.status(404).json({ error: 'User not found' });
@@ -148,19 +158,22 @@ export const approveEditAccess = async (req, res, next) => {
         const updates = {
             edit_request_status: 'APPROVED',
             edit_count: 0,
-            is_profile_verified: true
+            is_profile_verified: true,
+            admin_suggestion: null,
+            pending_profile_updates: null
         };
 
         if (targetUser.pending_profile_updates) {
             try {
-                const pending = JSON.parse(targetUser.pending_profile_updates);
+                const pending = typeof targetUser.pending_profile_updates === 'string'
+                    ? JSON.parse(targetUser.pending_profile_updates)
+                    : targetUser.pending_profile_updates;
                 if (pending.name !== undefined) updates.name = pending.name;
                 if (pending.mobile_number !== undefined) updates.mobile_number = pending.mobile_number;
                 if (pending.register_no !== undefined) updates.register_no = pending.register_no;
                 if (pending.year !== undefined) updates.year = pending.year;
                 if (pending.department !== undefined) updates.department = pending.department;
                 if (pending.classroom_no !== undefined) updates.classroom_no = pending.classroom_no;
-                updates.pending_profile_updates = null;
             } catch (err) {
                 console.error("Failed to parse pending_profile_updates on approval", err);
             }
@@ -180,8 +193,9 @@ export const rejectEditAccess = async (req, res, next) => {
         const { suggestion } = req.body;
         
         const requester = await UserService.getUserById(req.user.id);
-        const isAdmin = requester?.is_admin || requester?.role === 'Admin';
-        if (!isAdmin) return res.status(403).json({ error: 'Forbidden: Admin access required' });
+        const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+        const isRequesterAdmin = ADMIN_EMAILS.includes((req.user?.email || requester?.email || '').toLowerCase().trim()) || req.user?.id === 'admin-user-001';
+        if (!isRequesterAdmin) return res.status(403).json({ error: 'Forbidden: Admin access required' });
         
         const user = await UserService.updateUser(id, {
             edit_request_status: 'REJECTED',

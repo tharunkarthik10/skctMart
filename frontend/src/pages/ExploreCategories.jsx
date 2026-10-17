@@ -17,7 +17,7 @@ export const ExploreCategories = () => {
       
       {/* TopAppBar */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
               <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
@@ -27,7 +27,7 @@ export const ExploreCategories = () => {
         </div>
       </header>
 
-      <main className="flex-grow max-w-7xl mx-auto w-full px-4 md:px-8 pt-8 pb-32">
+      <main className="flex-grow w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] pt-8 pb-32">
         {/* Search Hero Section */}
         <section className="mb-12">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-sm rounded-3xl p-6 md:p-10 flex flex-col gap-6">

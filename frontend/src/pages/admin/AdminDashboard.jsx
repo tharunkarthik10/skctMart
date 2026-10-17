@@ -44,12 +44,12 @@ export const AdminDashboard = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-20 bg-[var(--color-surface)] border-b border-[var(--color-border)] flex items-center px-8 shrink-0 shadow-sm z-10">
+        <header className="h-20 bg-[var(--color-surface)] border-b border-[var(--color-border)] flex items-center px-3 md:px-[22px] shrink-0 shadow-sm z-10">
           <h1 className="text-h2 text-[var(--color-text-primary)]">
             {navItems.find(item => location.pathname.startsWith(item.path))?.label || 'Dashboard'}
           </h1>
         </header>
-        <div className="flex-1 overflow-auto p-8 bg-[var(--color-background)]">
+        <div className="flex-1 overflow-auto py-8 px-3 md:px-[22px] bg-[var(--color-background)]">
           <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>

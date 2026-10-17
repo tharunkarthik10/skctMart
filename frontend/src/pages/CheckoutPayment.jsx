@@ -11,9 +11,8 @@ export const CheckoutPayment = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentFailed, setPaymentFailed] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
   const [meetupName, setMeetupName] = useState('');
   const [meetupPhone, setMeetupPhone] = useState('');
   const [meetupSpot, setMeetupSpot] = useState('Campus Central Library / Food Court');
@@ -24,13 +23,16 @@ export const CheckoutPayment = () => {
       try {
         const response = await apiClient.get(`/components/${id}`);
         const comp = response.data;
+        const sellerId = comp.seller_id || comp.seller?.id || comp.userId;
         setProduct({
           id: comp.id,
           name: comp.title,
           price: `₹${comp.price}`,
-          images: comp.images?.length > 0 ? comp.images : ['https://picsum.photos/800/800?random=99'],
+          condition: comp.condition || 'Used',
+          images: comp.images?.length > 0 ? comp.images : [comp.image_url || 'https://picsum.photos/800/800?random=99'],
           image: comp.image_url || (comp.images?.length > 0 ? comp.images[0] : 'https://picsum.photos/800/800?random=99'),
           seller: {
+            id: sellerId,
             name: comp.seller?.name || comp.seller?.email?.split('@')[0] || 'Maker',
             college: comp.seller?.college || 'SKCET'
           }
@@ -52,19 +54,6 @@ export const CheckoutPayment = () => {
     };
     fetchData();
   }, [id]);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    if (!document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')) {
-      console.log('Loading Razorpay SDK dynamically...');
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      script.onload = () => console.log('✓ Razorpay SDK Loaded');
-      script.onerror = () => console.error('Failed to load Razorpay SDK');
-      document.body.appendChild(script);
-    }
-  }, []);
 
   if (isLoading) {
     return (
@@ -97,107 +86,42 @@ export const CheckoutPayment = () => {
   const subtotal = basePrice * quantity;
   const grandTotal = subtotal + platformFee + deliveryFee;
 
-  const handlePlaceOrder = async () => {
+  const handleConfirmPurchase = async () => {
     try {
       setIsProcessing(true);
-      setPaymentFailed(null);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      let token = session?.access_token;
-      if (!token) {
-        const demoUserStr = localStorage.getItem('demo_user_session');
-        if (demoUserStr) {
-           try {
-             const parsed = JSON.parse(demoUserStr);
-             token = `demo_token_${parsed.user?.id || '87650734-b92a-4465-b397-325f392c0267'}`;
-           } catch(e) {}
-        }
-      }
-      if (!token) token = 'demo_token';
+      setErrorMessage(null);
 
-      const res = await apiClient.post('/payment/create-order', { amount: grandTotal }, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const meetupLocation = `${meetupSpot} (Recipient: ${meetupName || userProfile?.name || 'Student'}, Ph: ${meetupPhone || userProfile?.mobile_number || 'N/A'})`;
+
+      const response = await apiClient.post('/orders', {
+        productId: product.id,
+        productName: product.name,
+        productImage: product.images[0] || product.image,
+        sellerId: product.seller?.id,
+        quantity: quantity,
+        price: grandTotal,
+        subtotal: subtotal,
+        platformFee: platformFee,
+        deliveryFee: deliveryFee,
+        gst: 0,
+        deliveryAddress: meetupLocation
       });
-      const orderData = res.data;
-      
-      if (!orderData || !orderData.orderId) {
-        throw new Error('Invalid response from server: Missing Order ID');
-      }
 
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'MakerMart',
-        description: product.name,
-        order_id: orderData.orderId,
-        handler: async function (response) {
-          try {
-            const verifyRes = await apiClient.post('/payment/verify', {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              productId: product.id,
-              productName: product.name,
-              productImage: product.images[0],
-              quantity: quantity,
-              price: grandTotal,
-              subtotal: subtotal,
-              platformFee: platformFee,
-              deliveryFee: deliveryFee,
-              gst: 0,
-              deliveryAddress: `${meetupSpot} (Recipient: ${meetupName || 'Student'}, Ph: ${meetupPhone || 'N/A'})` 
-            }, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const verifyData = verifyRes.data;
-            
-            if (verifyData.success) {
-              navigate('/order-success', {
-                state: {
-                  productName: product.name,
-                  productImage: product.images[0],
-                  sellerName: product.seller.name,
-                  amountPaid: grandTotal,
-                  paymentId: response.razorpay_payment_id
-                }
-              });
-            } else {
-              setPaymentFailed(verifyData.error || 'Payment verification failed on the server.');
-            }
-          } catch (err) {
-            console.error('Verification network error:', err);
-            setPaymentFailed(err.response?.data?.error || err.message || 'Network error during verification.');
-          }
-        },
-        prefill: {
-          name: userProfile?.name || "John Doe",
-          contact: userProfile?.mobile_number || "9876543210"
-        },
-        theme: {
-          color: '#46A857' // Green primary color
-        },
-        modal: {
-          ondismiss: function() {
-            setIsProcessing(false);
-          }
+      const data = response.data;
+
+      if (data.success) {
+        if (data.chatId) {
+          navigate(`/chat/${data.chatId}`);
+        } else {
+          navigate('/inbox');
         }
-      };
-
-      if (!window.Razorpay) {
-        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+      } else {
+        setErrorMessage(data.error || 'Failed to confirm purchase. Please try again.');
       }
-
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response){
-        console.error('Razorpay Payment Failed Event:', response.error);
-        setPaymentFailed(response.error.description || 'Payment was declined by the gateway.');
-      });
-      rzp.open();
-
     } catch (error) {
-      console.error('Checkout Flow Error:', error);
-      setPaymentFailed(error.response?.data?.error || error.message || 'An unexpected error occurred.');
+      console.error('Confirm purchase error:', error);
+      setErrorMessage(error.response?.data?.error || error.message || 'An error occurred while confirming purchase.');
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -205,27 +129,27 @@ export const CheckoutPayment = () => {
   return (
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
       
-      {/* Payment Failed Dialog */}
-      {paymentFailed && (
+      {/* Error Dialog */}
+      {errorMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-[var(--color-surface)] rounded-3xl p-8 max-w-sm w-full min-w-[320px] text-center shadow-xl border border-[var(--color-border)]">
             <div className="w-16 h-16 bg-[var(--color-danger)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
                <span className="material-symbols-outlined text-[var(--color-danger)] text-[32px]">error</span>
             </div>
-            <h3 className="text-h2 mb-2">Payment Failed</h3>
-            <p className="text-sm text-[var(--color-text-secondary)] mb-8 whitespace-pre-wrap">{paymentFailed}</p>
+            <h3 className="text-h2 mb-2">Order Error</h3>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-8 whitespace-pre-wrap">{errorMessage}</p>
             <div className="flex flex-col gap-3">
               <button 
-                onClick={handlePlaceOrder}
+                onClick={handleConfirmPurchase}
                 className="btn-primary"
               >
-                Retry Payment
+                Retry Purchase
               </button>
               <button 
-                onClick={() => setPaymentFailed(null)}
+                onClick={() => setErrorMessage(null)}
                 className="btn-secondary"
               >
-                Cancel
+                Close
               </button>
             </div>
           </div>
@@ -234,7 +158,7 @@ export const CheckoutPayment = () => {
 
       {/* Header */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-40 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} className="btn-icon">
               <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
@@ -244,7 +168,7 @@ export const CheckoutPayment = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 pt-8">
+      <main className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] pt-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* Left Column - Details */}
@@ -336,20 +260,39 @@ export const CheckoutPayment = () => {
               </div>
             </div>
 
-            {/* Payment Methods */}
+            {/* Payment Method - Cash on Delivery Only */}
             <div className="card-standard p-6 md:p-8">
-              <h2 className="text-h3 mb-6">Payment Method</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {['UPI', 'Credit Card', 'Debit Card', 'Net Banking'].map((method) => (
-                  <button
-                    key={method}
-                    onClick={() => setPaymentMethod(method)}
-                    className={`p-4 rounded-xl border-2 flex items-center justify-between transition-all ${paymentMethod === method ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 shadow-sm' : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50 bg-[var(--color-background)]'}`}
-                  >
-                    <span className={`font-bold ${paymentMethod === method ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-primary)]'}`}>{method}</span>
-                    {paymentMethod === method && <span className="material-symbols-outlined text-[var(--color-primary)]">check_circle</span>}
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-h3">Payment Method</h2>
+                <span className="badge-primary flex items-center gap-1.5 text-xs font-semibold py-1 px-3">
+                  <span className="material-symbols-outlined text-[15px]">local_shipping</span>
+                  Cash on Delivery
+                </span>
+              </div>
+              
+              <div className="p-5 rounded-2xl border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 flex items-start sm:items-center justify-between gap-4 shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[var(--color-primary)]/15 text-[var(--color-primary)] flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[26px]">payments</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base text-[var(--color-text-primary)]">Cash on Delivery (COD)</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-primary)] text-white font-bold">Selected</span>
+                    </div>
+                    <p className="text-xs text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                      Pay directly to the seller during on-campus physical item handover. No online transaction required.
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-[var(--color-primary)]">
+                  <span className="material-symbols-outlined text-[26px]">check_circle</span>
+                </div>
+              </div>
+
+              <div className="mt-4 p-3.5 bg-[var(--color-background)] rounded-xl border border-[var(--color-border)] flex items-center gap-3 text-xs text-[var(--color-text-secondary)] font-medium">
+                <span className="material-symbols-outlined text-[18px] text-[var(--color-primary)] shrink-0">mark_chat_unread</span>
+                <span>An automated message will be sent to the seller's inbox immediately upon confirmation to coordinate pickup.</span>
               </div>
             </div>
 
@@ -394,21 +337,26 @@ export const CheckoutPayment = () => {
               </div>
 
               <button 
-                onClick={handlePlaceOrder}
+                onClick={handleConfirmPurchase}
                 disabled={isProcessing}
-                className="btn-primary w-full py-4 text-lg justify-center disabled:opacity-70 disabled:hover:translate-y-0 disabled:active:scale-100 disabled:cursor-not-allowed"
+                className="btn-primary w-full py-4 text-lg justify-center gap-2.5 font-bold disabled:opacity-70 disabled:hover:translate-y-0 disabled:active:scale-100 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all"
               >
                 {isProcessing ? (
-                   <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                   <>
+                     <span className="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
+                     <span>Confirming Purchase...</span>
+                   </>
                 ) : (
-                   <span className="material-symbols-outlined">lock</span>
+                   <>
+                     <span className="material-symbols-outlined text-[22px]">shopping_bag</span>
+                     <span>Confirm Purchase</span>
+                   </>
                 )}
-                {isProcessing ? 'Processing...' : 'Proceed to Payment'}
               </button>
 
               <p className="text-center text-xs font-semibold text-[var(--color-text-secondary)] mt-5 flex items-center justify-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px] text-[var(--color-success)]">verified_user</span>
-                Secure Checkout Process
+                <span className="material-symbols-outlined text-[16px] text-[var(--color-success)]">verified</span>
+                Campus Meetup • Pay on Delivery
               </p>
             </div>
           </div>

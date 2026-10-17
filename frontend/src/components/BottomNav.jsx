@@ -93,7 +93,7 @@ export const BottomNav = () => {
   const avatarUrl = getAvatarUrl(currentUser);
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-[var(--color-surface)] border-t border-[var(--color-border)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+    <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-3 py-2 bg-[var(--color-surface)] border-t border-[var(--color-border)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
       <Link 
         className={`flex flex-col items-center justify-center p-2 transition-transform duration-150 active:scale-90 ${isActive('/') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'}`} 
         to="/"

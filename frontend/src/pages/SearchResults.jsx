@@ -4,6 +4,7 @@ import { PRODUCTS } from '../data/products';
 import { BottomNav } from '../components/BottomNav';
 import apiClient from '../api/client';
 import { getWishlist, toggleWishlist } from '../utils/wishlistStorage';
+import { getSellerName, getProductDatePosted } from '../utils/productUtils';
 
 export const SearchResults = () => {
   const location = useLocation();
@@ -40,8 +41,12 @@ export const SearchResults = () => {
           condition: comp.condition || 'Used',
           status: comp.status === 'ACTIVE' || comp.availability === 'In Stock' || comp.availability === 'Available' ? 'Available' : 'Sold',
           rating: '5.0',
-          college: 'SKCT',
-          time: 'Just now',
+          college: comp.seller?.college || 'SKCT',
+          seller: comp.seller,
+          sellerName: getSellerName(comp),
+          createdAt: comp.createdAt,
+          datePosted: getProductDatePosted(comp),
+          time: getProductDatePosted(comp),
           description: comp.why_sell || comp.tech_specs || comp.description || '',
           category: comp.category,
           isAuction: comp.listing_type === 'AUCTION' || comp.isAuction === true,
@@ -106,7 +111,7 @@ export const SearchResults = () => {
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
       {/* Header */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center gap-3">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-[var(--color-background)] rounded-full transition-colors active:scale-95">
             <span className="material-symbols-outlined text-[var(--color-text-primary)]">arrow_back</span>
           </button>
@@ -114,7 +119,7 @@ export const SearchResults = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
+      <main className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] py-6">
         <div className="mb-6 flex items-center justify-between">
           <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
             Showing {isLoading ? '...' : filteredProducts.length} items
@@ -143,7 +148,7 @@ export const SearchResults = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 xl:gap-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {filteredProducts.map((product) => (
               product.isAuction ? (
                 // AUCTION CARD
@@ -172,22 +177,35 @@ export const SearchResults = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="p-3 flex flex-col flex-1 gap-2">
+                  <div className="p-4 flex flex-col flex-1 gap-2.5">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm md:text-base font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">{product.name}</h3>
+                      <h3 className="text-base md:text-lg font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">{product.name}</h3>
                       <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-semibold bg-[var(--color-background)] px-2 py-0.5 rounded border border-[var(--color-border)]">
                         <span className="material-symbols-outlined text-[14px]">group</span>
-                        {product.bidders}
+                        {product.bidders || '3'}
                       </div>
                     </div>
+
+                    {/* Seller Name and Date Posted */}
+                    <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)] font-medium">
+                      <div className="flex items-center gap-1.5 truncate max-w-[130px]" title={`Seller: ${product.sellerName || getSellerName(product)}`}>
+                        <span className="material-symbols-outlined text-[14px] text-[var(--color-primary)]">person</span>
+                        <span className="truncate text-[var(--color-text-primary)] font-semibold">{product.sellerName || getSellerName(product)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0" title="Date of Posted">
+                        <span className="material-symbols-outlined text-[13px]">calendar_today</span>
+                        <span>{product.datePosted || getProductDatePosted(product)}</span>
+                      </div>
+                    </div>
+
                     <div className="flex flex-col gap-1 mt-1 bg-[var(--color-primary)]/5 p-3 rounded-xl border border-[var(--color-primary)]/20">
                       <div className="flex items-baseline justify-between">
-                        <span className="text-[10px] font-semibold text-[var(--color-text-secondary)]">Current Bid</span>
-                        <span className="text-lg md:text-xl font-black text-[var(--color-text-primary)]">{product.currentBid || product.price}</span>
+                        <span className="text-xs font-semibold text-[var(--color-text-secondary)]">Current Bid</span>
+                        <span className="text-xl md:text-2xl font-black text-[var(--color-text-primary)]">{product.currentBid || product.price}</span>
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Market Price</span>
-                        <span className="text-xs font-semibold text-[var(--color-text-secondary)] line-through">{product.marketPrice || product.originalPrice}</span>
+                        <span className="text-xs font-medium text-[var(--color-text-secondary)]">Market Price</span>
+                        <span className="text-sm font-semibold text-[var(--color-text-secondary)] line-through">{product.marketPrice || product.originalPrice}</span>
                       </div>
                     </div>
                     <button 
@@ -195,10 +213,10 @@ export const SearchResults = () => {
                         e.stopPropagation();
                         navigate(`/product/${product.id}`);
                       }}
-                      className="btn-auction w-full mt-1 h-8 md:h-10 text-xs md:text-sm"
+                      className="btn-auction w-full mt-1.5 h-10 text-sm"
                     >
                       Join Auction
-                      <span className="material-symbols-outlined text-[16px] md:text-[18px]">gavel</span>
+                      <span className="material-symbols-outlined text-[18px]">gavel</span>
                     </button>
                   </div>
                 </div>
@@ -241,32 +259,32 @@ export const SearchResults = () => {
                       </span>
                     </button>
                   </div>
-                  <div className="p-3 flex flex-col flex-1 gap-1.5 md:gap-2">
+                  <div className="p-4 flex flex-col flex-1 gap-2">
                     <div className="flex items-center justify-between">
                       <div className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider bg-[var(--color-background)] px-2 py-0.5 rounded border border-[var(--color-border)]">
                         {product.condition}
                       </div>
-                      <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-medium">
-                        <span className="material-symbols-outlined text-[14px]">schedule</span>
-                        {product.time || product.postedTime}
+                      <div className="text-xs text-[var(--color-text-secondary)] flex items-center gap-1 font-medium" title="Date of Posted">
+                        <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                        {product.datePosted || getProductDatePosted(product)}
                       </div>
                     </div>
-                    <h3 className="text-sm md:text-base font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">{product.name}</h3>
+                    <h3 className="text-base md:text-lg font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">{product.name}</h3>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-lg md:text-xl font-bold text-[var(--color-text-primary)] leading-none">{product.price}</span>
+                      <span className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)] leading-none">{product.price}</span>
                       {product.originalPrice && (
                         <span className="text-sm text-[var(--color-text-secondary)] line-through leading-none font-medium">{product.originalPrice}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-2 pt-3 border-t border-[var(--color-border)]">
-                      <div className="flex items-center gap-1 text-xs font-bold text-[var(--color-text-primary)]">
-                        <span className="material-symbols-outlined text-[16px] text-[var(--color-primary)]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                        {product.rating || product.sellerRating}
+                    {/* Seller Name & College */}
+                    <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)] pt-2.5 mt-auto border-t border-[var(--color-border)] font-medium">
+                      <div className="flex items-center gap-1.5 truncate max-w-[130px]" title={`Seller: ${product.sellerName || getSellerName(product)}`}>
+                        <span className="material-symbols-outlined text-[15px] text-[var(--color-primary)]">person</span>
+                        <span className="truncate text-[var(--color-text-primary)] font-semibold">{product.sellerName || getSellerName(product)}</span>
                       </div>
-                      <div className="w-1 h-1 rounded-full bg-[var(--color-border)]"></div>
-                      <div className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)] font-medium line-clamp-1">
+                      <div className="flex items-center gap-1 text-[var(--color-text-secondary)] font-medium shrink-0">
                         <span className="material-symbols-outlined text-[14px]">school</span>
-                        {product.college || product.sellerCollege}
+                        <span>{product.college || product.sellerCollege || 'SKCT'}</span>
                       </div>
                     </div>
                   </div>

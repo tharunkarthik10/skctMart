@@ -326,7 +326,7 @@ export const PersonalProfile = () => {
       
       {/* TopAppBar Execution */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
               <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
@@ -444,7 +444,7 @@ export const PersonalProfile = () => {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+      <main className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           {/* Profile Sidebar Section */}
           <aside className="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-24 h-fit min-w-0 pr-1">
@@ -502,7 +502,7 @@ export const PersonalProfile = () => {
                 <span className="material-symbols-outlined text-[20px] text-red-500">favorite</span>
                 My Wishlist
               </button>
-              {(userData?.is_admin || userData?.role === 'Admin' || ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes(authEmail)) && (
+              {(['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes((authEmail || '').toLowerCase().trim()) || authId === 'admin-user-001') && (
                 <button onClick={() => navigate('/admin')} className="btn-secondary text-[var(--color-primary)] flex items-center justify-center gap-2 border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5">
                   <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
                   Admin Portal
@@ -658,7 +658,7 @@ export const PersonalProfile = () => {
                   </div>
                   <div>
                     <label className="text-xs font-bold text-[var(--color-text-secondary)] uppercase block mb-1">Account Status</label>
-                    {(userData?.is_admin || userData?.role === 'Admin' || ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes(authEmail)) ? (
+                    {(['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes((authEmail || '').toLowerCase().trim()) || authId === 'admin-user-001') ? (
                       <div className="flex items-center gap-1.5 text-[var(--color-primary)]">
                         <span className="material-symbols-outlined text-[20px]">verified_user</span>
                         <p className="text-sm font-bold">Verified Administrator</p>

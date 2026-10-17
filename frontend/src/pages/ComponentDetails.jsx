@@ -4,6 +4,7 @@ import { BottomNav } from '../components/BottomNav';
 import { PRODUCTS } from '../data/products';
 import apiClient from '../api/client';
 import { supabase } from '../supabaseClient';
+import { getSellerName, getProductDatePosted, formatPostedDate } from '../utils/productUtils';
 
 export const ComponentDetails = () => {
   const { id } = useParams();
@@ -91,6 +92,9 @@ export const ComponentDetails = () => {
         const formattedPrice = typeof rawPrice === 'number' ? `₹${rawPrice}` : (rawPrice || '₹0');
         const formattedOriginal = comp.originalPrice || (typeof rawPrice === 'number' ? `₹${rawPrice + 200}` : '₹999');
 
+        const sName = getSellerName(comp);
+        const pDate = getProductDatePosted(comp);
+
         const mappedProduct = {
           id: comp.id,
           name: comp.title || comp.name,
@@ -99,8 +103,9 @@ export const ComponentDetails = () => {
           condition: comp.condition || 'Good',
           availability: comp.status === 'ACTIVE' || comp.availability === 'In Stock' || comp.availability === 'Available' ? 'Available' : 'Sold',
           sellerRating: comp.sellerRating || comp.rating || '5.0',
-          sellerCollege: comp.sellerCollege || comp.college || 'SKCT',
-          postedTime: comp.postedTime || comp.time || 'Just now',
+          sellerCollege: comp.seller?.college || comp.sellerCollege || comp.college || 'SKCT',
+          postedTime: pDate,
+          datePosted: pDate,
           description: comp.why_sell || comp.tech_specs || comp.description || '',
           category: comp.category || 'Electronics',
           isAuction: comp.listing_type === 'AUCTION' || comp.isAuction === true,
@@ -109,10 +114,10 @@ export const ComponentDetails = () => {
           image: comp.image_url || (comp.images?.length > 0 ? comp.images[0] : (comp.image || 'https://picsum.photos/800/800?random=99')),
           seller: { 
             id: comp.seller_id || comp.seller?.id || 'maker-1',
-            name: comp.seller?.name || 'Maker', 
+            name: sName, 
             avatar: comp.seller?.avatar_url || comp.seller?.avatar || 'https://i.pravatar.cc/150?u=maker', 
             role: comp.seller?.role || 'Member',
-            college: comp.seller?.college || 'SKCT',
+            college: comp.seller?.college || comp.sellerCollege || comp.college || 'SKCT',
             isVerified: comp.seller?.isVerified ?? true,
             rating: comp.seller?.rating || '4.9',
             responseTime: comp.seller?.responseTime || '< 1 hr'
@@ -133,6 +138,9 @@ export const ComponentDetails = () => {
             name: c.title || c.name,
             price: typeof c.price === 'number' ? `₹${c.price}` : c.price,
             condition: c.condition,
+            seller: c.seller,
+            sellerName: getSellerName(c),
+            datePosted: getProductDatePosted(c),
             image: c.image_url || (c.images?.length > 0 ? c.images[0] : c.image)
           }))
           .slice(0, 4);
@@ -231,7 +239,7 @@ export const ComponentDetails = () => {
       
       {/* TopAppBar */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} className="btn-icon">
               <span className="material-symbols-outlined">arrow_back</span>
@@ -251,7 +259,7 @@ export const ComponentDetails = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-12">
+      <main className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] pt-6 pb-12">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12">
             
@@ -292,15 +300,26 @@ export const ComponentDetails = () => {
                     <span className="w-2 h-2 rounded-full bg-[var(--color-primary)]"></span>
                     {DUMMY_PRODUCT.availability}
                   </span>
-                  <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] font-medium ml-auto">
-                    <span className="material-symbols-outlined text-[16px]">schedule</span>
-                    {DUMMY_PRODUCT.postedTime}
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)] font-medium ml-auto bg-[var(--color-background)] px-2.5 py-1 rounded-full border border-[var(--color-border)]">
+                    <span className="material-symbols-outlined text-[15px] text-[var(--color-primary)]">calendar_today</span>
+                    <span>Posted on {DUMMY_PRODUCT.datePosted || DUMMY_PRODUCT.postedTime}</span>
                   </div>
                 </div>
                 
                 <h1 className="text-h1 leading-tight mt-1">
                   {DUMMY_PRODUCT.name}
                 </h1>
+
+                {/* Seller & Date Posted Row */}
+                <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--color-text-secondary)] font-medium">
+                  <span className="material-symbols-outlined text-[18px] text-[var(--color-primary)]">person</span>
+                  <span>Listed by <button onClick={() => navigate(`/user/${DUMMY_PRODUCT.seller.id}`)} className="text-[var(--color-primary)] font-bold hover:underline">{DUMMY_PRODUCT.seller.name}</button></span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+                    Posted on <strong className="text-[var(--color-text-primary)] font-semibold">{DUMMY_PRODUCT.datePosted || DUMMY_PRODUCT.postedTime}</strong>
+                  </span>
+                </div>
                 
                 <div className="flex items-end gap-3 mt-1">
                   <span className="text-4xl md:text-5xl font-black text-[var(--color-text-primary)] tracking-tight">{DUMMY_PRODUCT.price}</span>
@@ -509,7 +528,7 @@ export const ComponentDetails = () => {
                 <div 
                   key={prod.id} 
                   onClick={() => navigate(`/product/${prod.id}`)}
-                  className="snap-start shrink-0 w-[240px] card-interactive flex flex-col group"
+                  className="snap-start shrink-0 w-[280px] card-interactive flex flex-col group"
                 >
                   <div className="w-full aspect-square bg-[var(--color-background)] relative overflow-hidden flex items-center justify-center">
                     {prod.image ? (
@@ -521,9 +540,20 @@ export const ComponentDetails = () => {
                       {prod.condition}
                     </div>
                   </div>
-                  <div className="p-4 flex flex-col gap-2 bg-[var(--color-surface)] z-10">
+                  <div className="p-4 flex flex-col gap-2 bg-[var(--color-surface)] z-10 flex-1">
                     <h4 className="font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors text-lg">{prod.name}</h4>
                     <span className="text-2xl font-black text-[var(--color-text-primary)]">{prod.price}</span>
+                    {/* Seller & Date Posted */}
+                    <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)] pt-2 mt-auto border-t border-[var(--color-border)] font-medium">
+                      <span className="flex items-center gap-1 truncate max-w-[120px]" title={prod.sellerName || 'Student'}>
+                        <span className="material-symbols-outlined text-[14px] text-[var(--color-primary)]">person</span>
+                        <span className="truncate">{prod.sellerName || 'Student'}</span>
+                      </span>
+                      <span className="flex items-center gap-1 shrink-0">
+                        <span className="material-symbols-outlined text-[13px]">calendar_today</span>
+                        <span>{prod.datePosted || 'Recently'}</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}

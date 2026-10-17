@@ -28,7 +28,7 @@ export const Hackathon = () => {
   return (
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
               <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
@@ -37,7 +37,7 @@ export const Hackathon = () => {
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+      <main className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           <section className="lg:col-span-8 flex flex-col gap-6 min-w-0">
           

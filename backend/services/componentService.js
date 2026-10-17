@@ -13,11 +13,17 @@ export const getAllComponents = async (filters = {}) => {
         ];
     }
     
-    return await prisma.component.findMany({
+    let components = await prisma.component.findMany({
         where,
         include: { seller: { select: { id: true, name: true, email: true, avatar_url: true } } },
         orderBy: { createdAt: 'desc' },
     });
+
+    if (!filters.seller_id && !filters.includeSold && !filters.status) {
+        components = components.filter(c => c.status !== 'SOLD' && c.status !== 'Archived' && c.status !== 'ARCHIVED');
+    }
+
+    return components;
 };
 
 export const getComponentById = async (id) => {
@@ -30,6 +36,7 @@ export const getComponentById = async (id) => {
 export const getComponentsBySeller = async (sellerId) => {
     return await prisma.component.findMany({
         where: { seller_id: sellerId },
+        include: { seller: { select: { id: true, name: true, email: true, avatar_url: true } } },
         orderBy: { createdAt: 'desc' },
     });
 };

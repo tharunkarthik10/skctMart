@@ -28,7 +28,12 @@ export const AdminUsers = () => {
         fetchUsers();
     });
 
+    const pollInterval = setInterval(() => {
+        fetchUsers();
+    }, 3000);
+
     return () => {
+      clearInterval(pollInterval);
       realtimeService.unsubscribe(subscription);
     };
   }, []);
@@ -153,13 +158,19 @@ export const AdminUsers = () => {
                           <div><strong>Dept:</strong> {pendingData.department || 'N/A'} <span className="text-[var(--color-text-secondary)] font-medium">(Current: {user.department || 'N/A'})</span></div>
                           <div><strong>Year:</strong> {pendingData.year || 'N/A'} <span className="text-[var(--color-text-secondary)] font-medium">(Current: {user.year || 'N/A'})</span></div>
                           <div><strong>Classroom:</strong> {pendingData.classroom_no || 'N/A'} <span className="text-[var(--color-text-secondary)] font-medium">(Current: {user.classroom_no || 'N/A'})</span></div>
+                          {user.admin_suggestion && (
+                            <div className="mt-1.5 pt-1.5 border-t border-[var(--color-warning)]/20 text-[var(--color-danger)] font-medium flex items-center gap-1 text-[11px]">
+                              <span className="material-symbols-outlined text-[13px]">rate_review</span>
+                              <span>Feedback: "{user.admin_suggestion}"</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
                   </td>
                   <td className="py-4 px-6">
                     <span className="px-3 py-1.5 bg-[var(--color-background)] text-[var(--color-text-secondary)] font-bold rounded-md text-xs border border-[var(--color-border)] shadow-sm">
-                      {user.is_admin ? 'Admin' : (user.role || 'Member')}
+                      {['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes((user.email || '').toLowerCase().trim()) ? 'Admin' : (user.role || 'Member')}
                     </span>
                   </td>
                   <td className="py-4 px-6">

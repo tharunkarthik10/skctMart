@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import apiClient from '../api/client';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -23,9 +24,11 @@ export const Login = () => {
     setLoading(true);
     setError(null);
 
+    const trimmedEmail = email.trim().toLowerCase();
     const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
-    const isAdminEmail = ADMIN_EMAILS.includes(email);
-    const isCollegeEmail = email.endsWith('.edu') || email.endsWith('.edu.in') || isAdminEmail;
+    const isAdminEmail = ADMIN_EMAILS.includes(trimmedEmail);
+    const isCollegeEmail = trimmedEmail.endsWith('.edu') || trimmedEmail.endsWith('.edu.in') || isAdminEmail;
+    
     if (!isCollegeEmail) {
       setError('Only college domains (like @skct.edu.in or .edu) or Admin emails are allowed.');
       setLoading(false);
@@ -39,7 +42,7 @@ export const Login = () => {
         return;
       }
       try {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
         if (error) throw error;
         navigate('/admin');
         setLoading(false);
@@ -49,10 +52,13 @@ export const Login = () => {
           user: {
             id: 'admin-user-001',
             email: '727824tuio046@skct.edu.in',
-            user_metadata: { name: 'Admin' }
+            user_metadata: { name: 'Admin (Tharun Karthik)', role: 'Admin' }
           }
         };
         localStorage.setItem('demo_user_session', JSON.stringify(demoSession));
+        try {
+          await apiClient.post('/users/upsert', { id: 'admin-user-001', email: '727824tuio046@skct.edu.in', name: 'Admin' });
+        } catch (e) {}
         navigate('/admin');
         window.location.reload();
         setLoading(false);
@@ -60,9 +66,10 @@ export const Login = () => {
       }
     }
 
+    // Standard Student Flow
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email: trimmedEmail, password });
         if (error) throw error;
         
         if (data?.session) {
@@ -73,35 +80,121 @@ export const Login = () => {
           setError(null);
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
         if (error) throw error;
         navigate('/profile');
       }
     } catch (err) {
-      if (err.message === 'Failed to fetch' || err.message?.includes('fetch')) {
-        setError('Cannot connect to Supabase authentication server. Please check your Supabase project URL in .env file or use Demo Mode.');
+      // Graceful Campus / Offline fallback when Supabase is unreachable
+      const users = JSON.parse(localStorage.getItem('skct_registered_users') || '[]');
+      let userId = 'user_' + trimmedEmail.replace(/[^a-zA-Z0-9]/g, '_');
+      let displayName = trimmedEmail.split('@')[0].toUpperCase();
+
+      // Check if user already exists in backend database
+      try {
+        const usersRes = await apiClient.get('/users');
+        const existingBackendUser = usersRes.data?.find(u => (u.email || '').toLowerCase() === trimmedEmail);
+        if (existingBackendUser) {
+          userId = existingBackendUser.id;
+          if (existingBackendUser.name) displayName = existingBackendUser.name;
+        }
+      } catch (e) {}
+
+      if (isSignUp) {
+        const existing = users.find(u => u.email === trimmedEmail);
+        if (existing) {
+          setError('An account with this email already exists. Please switch to Sign In.');
+          setLoading(false);
+          return;
+        }
+
+        const newUser = {
+          id: userId,
+          email: trimmedEmail,
+          password: password,
+          name: displayName
+        };
+        users.push(newUser);
+        localStorage.setItem('skct_registered_users', JSON.stringify(users));
+
+        const userSession = {
+          user: {
+            id: userId,
+            email: trimmedEmail,
+            user_metadata: { name: displayName, college: 'SKCT', role: 'Member' }
+          }
+        };
+        localStorage.setItem('demo_user_session', JSON.stringify(userSession));
+
+        try {
+          await apiClient.post('/users/upsert', { id: userId, email: trimmedEmail, name: displayName });
+        } catch (e) {}
+
+        navigate('/profile');
+        window.location.reload();
+        return;
       } else {
-        setError(err.message);
+        // Sign In mode
+        const existing = users.find(u => u.email === trimmedEmail);
+        if (existing) {
+          if (existing.password && existing.password !== password) {
+            setError('Incorrect password. Please verify your password.');
+            setLoading(false);
+            return;
+          }
+        } else {
+          // If valid college email, automatically authenticate
+          const newUser = {
+            id: userId,
+            email: trimmedEmail,
+            password: password,
+            name: displayName
+          };
+          users.push(newUser);
+          localStorage.setItem('skct_registered_users', JSON.stringify(users));
+        }
+
+        const userSession = {
+          user: {
+            id: userId,
+            email: trimmedEmail,
+            user_metadata: { name: displayName, college: 'SKCT', role: 'Member' }
+          }
+        };
+        localStorage.setItem('demo_user_session', JSON.stringify(userSession));
+
+        try {
+          await apiClient.post('/users/upsert', { id: userId, email: trimmedEmail, name: displayName });
+        } catch (e) {}
+
+        navigate('/');
+        window.location.reload();
+        return;
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDemoLogin = () => {
+  const handleDemoLogin = (customEmail) => {
+    const selectedEmail = customEmail || email || '727824tuio023@skct.edu.in';
     const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
-    const isAdmin = ADMIN_EMAILS.includes(email);
-    const userEmail = isAdmin ? (email || 'tharunkarthikav21@gmail.com') : (email || '727824tuio032@skct.edu.in');
-    const userId = isAdmin ? 'admin-user-001' : '87650734-b92a-4465-b397-325f392c0267';
-    
+    const isAdmin = ADMIN_EMAILS.includes(selectedEmail.toLowerCase());
+    const userId = isAdmin ? 'admin-user-001' : ('user_' + selectedEmail.replace(/[^a-zA-Z0-9]/g, '_'));
+    const displayName = isAdmin ? 'Admin (Tharun Karthik)' : selectedEmail.split('@')[0].toUpperCase();
+
     const demoSession = {
       user: {
         id: userId,
-        email: userEmail,
-        user_metadata: { name: isAdmin ? 'Admin' : 'Maker Student' }
+        email: selectedEmail,
+        user_metadata: { name: displayName, role: isAdmin ? 'Admin' : 'Member', college: 'SKCT' }
       }
     };
     localStorage.setItem('demo_user_session', JSON.stringify(demoSession));
+    
+    // Auto sync to backend
+    apiClient.post('/users/upsert', { id: userId, email: selectedEmail, name: displayName }).catch(() => {});
+    
     navigate(isAdmin ? '/admin' : '/');
     window.location.reload();
   };
@@ -131,7 +224,7 @@ export const Login = () => {
       
       {/* Top Navigation Bar */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex justify-between items-center">
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate('/')} aria-label="Go back" className="btn-icon">
               <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>

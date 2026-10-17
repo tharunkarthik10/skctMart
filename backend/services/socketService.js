@@ -87,10 +87,12 @@ export const emitUserUpdate = (user) => {
     if (!io) return;
     const payload = { new: user };
     io.to('admin').emit('postgres_changes:users:UPDATE', payload);
+    io.emit('postgres_changes:users:UPDATE', payload);
 };
 
 export const emitComponentUpdate = (component) => {
     if (!io) return;
     const payload = { new: component };
     io.to('admin').emit('postgres_changes:components:UPDATE', payload);
+    io.emit('postgres_changes:components:UPDATE', payload);
 };
