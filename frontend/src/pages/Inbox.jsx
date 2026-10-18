@@ -7,6 +7,7 @@ import { BottomNav } from '../components/BottomNav';
 import { getPremiumImageUrl } from '../utils/imageUtils';
 import { getRandomEmptyMessage } from '../utils/emptyStates';
 import { isProfileComplete } from '../utils/profileUtils';
+import { compressImage } from '../utils/imageCompressor';
 import EmojiPicker from 'emoji-picker-react';
 
 export const Inbox = () => {
@@ -102,14 +103,14 @@ export const Inbox = () => {
   // Helper to parse order card metadata from message content
   const parseOrderCard = (content) => {
     if (!content || typeof content !== 'string') return null;
-    if (content.startsWith('{') && content.includes('"ORDER_CONFIRMATION"')) {
+    if (content.startsWith('{') && (content.includes('"ORDER_CONFIRMATION"') || content.includes('"NEW_BID"'))) {
       try {
         return JSON.parse(content);
       } catch (e) {
         return null;
       }
     }
-    if (content.includes('New Order Placed') && (content.includes('Cash on Delivery') || content.includes('purchased'))) {
+    if (content.includes('New Order Placed') && (content.includes('Cash on Delivery') || content.includes('Pay on Handover') || content.includes('purchased'))) {
       const productMatch = content.match(/"([^"]+)"/);
       const priceMatch = content.match(/₹([0-9]+)/);
       const meetupMatch = content.match(/(?:Preferred Meetup|Meetup):\s*([^\n]+)/);
@@ -118,7 +119,7 @@ export const Inbox = () => {
         productName: productMatch ? productMatch[1] : null,
         grandTotal: priceMatch ? priceMatch[1] : null,
         deliveryAddress: meetupMatch ? meetupMatch[1] : null,
-        paymentMethod: 'Cash on Delivery',
+        paymentMethod: 'Pay on Handover (Cash / UPI)',
         note: content
       };
     }
@@ -315,6 +316,37 @@ export const Inbox = () => {
         setRefreshTrigger(prev => prev + 1);
       }
     });
+
+    // Real-time auction price updates
+    const bidChannel = realtimeService.subscribeToAuctionBids(payload => {
+      setRefreshTrigger(prev => prev + 1);
+      if (payload.componentId && payload.newPrice) {
+        setChatInfo(prev => {
+          if (prev?.component_id === payload.componentId && prev.components) {
+            return {
+              ...prev,
+              components: {
+                ...prev.components,
+                price: payload.newPrice
+              }
+            };
+          }
+          return prev;
+        });
+        setChats(prev => prev.map(c => {
+          if (c.component_id === payload.componentId && c.components) {
+            return {
+              ...c,
+              components: {
+                ...c.components,
+                price: payload.newPrice
+              }
+            };
+          }
+          return c;
+        }));
+      }
+    });
       
     // Append message in real-time if it belongs to current active conversation
     const msgChannel = realtimeService.subscribeToMessagesInbox(payload => {
@@ -336,6 +368,7 @@ export const Inbox = () => {
       
     return () => {
       realtimeService.unsubscribe(chatChannel);
+      if (bidChannel) realtimeService.unsubscribe(bidChannel);
       realtimeService.unsubscribe(msgChannel);
     };
   }, [currentUserId, chatId, userChatIds]);
@@ -394,32 +427,59 @@ export const Inbox = () => {
     }
   };
 
-  // Upload image attachment to Cloudflare R2 bucket and send message
+  // Upload image attachment to Cloudflare R2 bucket (or fallback) and send message
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !chatInfo) return;
     
     setUploadingImage(true);
     try {
-      // 1. Fetch presigned S3/R2 upload URL
-      const presignRes = await apiClient.post('/upload/presigned-url', { prefix: 'chat' });
-      const { uploadUrl, publicUrl } = presignRes.data;
+      // Automatically compress image before upload
+      let compressed;
+      try {
+        compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+      } catch (cErr) {
+        console.warn('Compression fallback in chat:', cErr);
+      }
 
-      // 2. Perform direct PUT upload to R2
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type || 'image/webp'
+      const fileToUpload = compressed?.file || file;
+      let finalContent = null;
+
+      try {
+        // 1. Fetch presigned S3/R2 upload URL
+        const presignRes = await apiClient.post('/upload/presigned-url', { prefix: 'chat' });
+        const { uploadUrl, publicUrl } = presignRes.data;
+
+        // 2. Perform direct PUT upload to R2
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: fileToUpload,
+          headers: {
+            'Content-Type': fileToUpload.type || 'image/webp'
+          }
+        });
+
+        if (uploadRes.ok) {
+          finalContent = publicUrl;
         }
-      });
+      } catch (uploadErr) {
+        console.warn("R2 presigned upload unavailable, using optimized data URL:", uploadErr);
+      }
+
+      if (!finalContent) {
+        finalContent = compressed?.dataUrl;
+      }
+
+      if (!finalContent) {
+        throw new Error("Could not process image attachment.");
+      }
       
       // 3. Create message reference in chat
       const receiverId = chatInfo.buyer_id === currentUserId ? chatInfo.seller_id : chatInfo.buyer_id;
       const res = await apiClient.post('/messages', {
         chat_id: chatId,
         receiver_id: receiverId,
-        content: publicUrl
+        content: finalContent
       });
 
       const sentMsg = { ...res.data, created_at: res.data.createdAt || res.data.created_at };
@@ -646,7 +706,17 @@ export const Inbox = () => {
                   } else {
                     const parsedOrder = parseOrderCard(latestMessage.content);
                     if (parsedOrder) {
-                      snippet = `📦 Order: ${parsedOrder.productName || productTitle} (₹${parsedOrder.grandTotal || ''})`;
+                      if (parsedOrder.type === 'NEW_BID') {
+                        const compPrice = Number(chat.components?.price || 0);
+                        const bidAmt = Number(parsedOrder.bidAmount || 0);
+                        if (compPrice > bidAmt) {
+                          snippet = `📉 Outbid: ₹${bidAmt.toLocaleString('en-IN')} (Current: ₹${compPrice.toLocaleString('en-IN')})`;
+                        } else {
+                          snippet = `🔥 Highest Bid: ₹${bidAmt.toLocaleString('en-IN')} on ${parsedOrder.componentTitle || productTitle}`;
+                        }
+                      } else {
+                        snippet = `📦 Order: ${parsedOrder.productName || productTitle} (₹${parsedOrder.grandTotal || ''})`;
+                      }
                     } else {
                       snippet = latestMessage.content;
                     }
@@ -908,6 +978,183 @@ export const Inbox = () => {
                               {(() => {
                                 const orderData = parseOrderCard(msg.content);
                                 if (orderData) {
+                                  if (orderData.type === 'NEW_BID') {
+                                    const prodImg = orderData.componentImage || chatInfo?.components?.image_url;
+                                    const prodTitle = orderData.componentTitle || chatInfo?.components?.title || 'Auction Item';
+                                    const bidAmount = Number(orderData.bidAmount || 0);
+                                    const targetCompId = orderData.componentId || chatInfo?.component_id;
+                                    const bidderName = orderData.bidderName || 'A student maker';
+
+                                    // Dynamically compute current highest bid for this component
+                                    let currentHighestBid = Number(chatInfo?.components?.price || 0);
+
+                                    const matchingChat = chats.find(c => c.component_id === targetCompId);
+                                    if (matchingChat?.components?.price) {
+                                      currentHighestBid = Math.max(currentHighestBid, Number(matchingChat.components.price));
+                                    }
+
+                                    chats.forEach(c => {
+                                      if (c.component_id === targetCompId && c.messages) {
+                                        c.messages.forEach(m => {
+                                          const parsed = parseOrderCard(m.content);
+                                          if (parsed?.type === 'NEW_BID') {
+                                            currentHighestBid = Math.max(currentHighestBid, Number(parsed.bidAmount || 0));
+                                          }
+                                        });
+                                      }
+                                    });
+
+                                    messages.forEach(m => {
+                                      const parsed = parseOrderCard(m.content);
+                                      if (parsed?.type === 'NEW_BID') {
+                                        currentHighestBid = Math.max(currentHighestBid, Number(parsed.bidAmount || 0));
+                                      }
+                                    });
+
+                                    const isOutbid = currentHighestBid > bidAmount;
+                                    const isLeadingBid = !isOutbid;
+
+                                    return (
+                                      <div className="space-y-3 min-w-[240px] sm:min-w-[290px] pt-1">
+                                        {/* Auction Header Badge */}
+                                        <div className="flex items-center justify-between pb-2.5 border-b border-black/10 dark:border-white/10">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className={`material-symbols-outlined text-[18px] ${
+                                              isMe 
+                                                ? 'text-white' 
+                                                : isLeadingBid ? 'text-amber-500' : 'text-rose-500'
+                                            }`}>
+                                              {isLeadingBid ? 'gavel' : 'history'}
+                                            </span>
+                                            <span className="text-xs font-black tracking-wide uppercase">
+                                              {isLeadingBid ? 'New Bid Received' : 'Previous Bid'}
+                                            </span>
+                                          </div>
+                                          {isLeadingBid ? (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                              isMe ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
+                                            }`}>
+                                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                              HIGHEST BID
+                                            </span>
+                                          ) : (
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                              isMe ? 'bg-white/20 text-white/90' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25'
+                                            }`}>
+                                              <span className="material-symbols-outlined text-[12px]">trending_down</span>
+                                              OUTBID
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Embedded Product Card with Bid Amount */}
+                                        <div className={`p-2.5 rounded-xl flex items-center gap-3 border transition-all ${
+                                          isMe 
+                                            ? 'bg-white/10 border-white/20 text-white' 
+                                            : isLeadingBid 
+                                              ? 'bg-[var(--color-background)] border-[var(--color-border)] shadow-sm' 
+                                              : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 shadow-xs'
+                                        }`}>
+                                          {prodImg ? (
+                                            <img 
+                                              src={getPremiumImageUrl(prodImg)} 
+                                              alt={prodTitle} 
+                                              className="w-14 h-14 rounded-lg object-cover border border-black/10 shrink-0 bg-white"
+                                              onError={(e) => { e.target.src = 'https://placehold.co/200x200/F8FAFC/46A857?text=Product'; }}
+                                            />
+                                          ) : (
+                                            <div className={`w-14 h-14 rounded-lg flex items-center justify-center shrink-0 ${
+                                              isMe ? 'bg-white/15' : isLeadingBid ? 'bg-amber-500/10 text-amber-500' : 'bg-rose-500/10 text-rose-500'
+                                            }`}>
+                                              <span className="material-symbols-outlined text-[24px]">
+                                                {isLeadingBid ? 'gavel' : 'history'}
+                                              </span>
+                                            </div>
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-sm truncate leading-snug">
+                                              {prodTitle}
+                                            </h4>
+                                            <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                                              <span className={`text-base font-black ${
+                                                isMe 
+                                                  ? 'text-white' 
+                                                  : isLeadingBid 
+                                                    ? 'text-emerald-600 dark:text-emerald-400' 
+                                                    : 'text-rose-600 dark:text-rose-400 line-through opacity-85'
+                                              }`}>
+                                                ₹{bidAmount.toLocaleString('en-IN')}
+                                              </span>
+                                              <span className={`text-[11px] font-semibold ${isMe ? 'text-white/75' : 'text-[var(--color-text-secondary)]'}`}>
+                                                by {bidderName}
+                                              </span>
+                                              {isOutbid && (
+                                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                                                  isMe ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300'
+                                                }`}>
+                                                  Outbid
+                                                </span>
+                                              )}
+                                            </div>
+                                            {targetCompId && (
+                                              <Link 
+                                                to={`/product/${targetCompId}`}
+                                                className={`inline-flex items-center gap-1 text-[10px] font-bold mt-1 underline hover:opacity-85 transition-opacity ${isMe ? 'text-white' : 'text-[var(--color-primary)]'}`}
+                                              >
+                                                <span>View Live Auction</span>
+                                                <span className="material-symbols-outlined text-[11px]">open_in_new</span>
+                                              </Link>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Status Notice if Outbid */}
+                                        {isOutbid && (
+                                          <div className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                                            isMe 
+                                              ? 'bg-black/25 text-white' 
+                                              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50'
+                                          }`}>
+                                            <span className="material-symbols-outlined text-[16px] text-rose-500 shrink-0">info</span>
+                                            <span className="text-[11px] font-semibold leading-tight">
+                                              This bid was outbid. Current leading bid is <strong>₹{currentHighestBid.toLocaleString('en-IN')}</strong>.
+                                            </span>
+                                          </div>
+                                        )}
+
+                                        {/* Note / Message */}
+                                        {orderData.note && (
+                                          <p className="font-medium text-xs leading-relaxed whitespace-pre-wrap pt-0.5 opacity-95">
+                                            {orderData.note}
+                                          </p>
+                                        )}
+
+                                        {/* Action Link */}
+                                        {targetCompId && (
+                                          <div className="pt-2 border-t border-[var(--color-border)]">
+                                            <Link
+                                              to={`/product/${targetCompId}`}
+                                              className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm ${
+                                                isMe 
+                                                  ? 'bg-white text-[var(--color-primary-dark)] hover:bg-white/90' 
+                                                  : isLeadingBid 
+                                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-95' 
+                                                    : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-background)]'
+                                              }`}
+                                            >
+                                              <span className="material-symbols-outlined text-[16px]">gavel</span>
+                                              <span>
+                                                {isLeadingBid 
+                                                  ? 'Check Live Auction' 
+                                                  : `View Current Auction (₹${currentHighestBid.toLocaleString('en-IN')})`}
+                                              </span>
+                                            </Link>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+
                                   const prodImg = orderData.productImage || chatInfo?.components?.image_url;
                                   const prodTitle = orderData.productName || chatInfo?.components?.title || 'Component';
                                   const prodPrice = orderData.grandTotal || chatInfo?.components?.price;
@@ -957,7 +1204,7 @@ export const Inbox = () => {
                                           <span className="text-xs font-black tracking-wide uppercase">Order Confirmed</span>
                                         </div>
                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isMe ? 'bg-white/20 text-white' : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'}`}>
-                                          COD
+                                          HANDOVER
                                         </span>
                                       </div>
 

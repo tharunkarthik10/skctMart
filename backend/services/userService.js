@@ -34,3 +34,10 @@ export const updateUser = async (id, data) => {
         data,
     });
 };
+
+export const getUserByEmail = async (email) => {
+    if (!email) return null;
+    return await prisma.user.findFirst({
+        where: { email: { equals: email.toLowerCase().trim(), mode: 'insensitive' } },
+    });
+};

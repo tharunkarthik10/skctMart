@@ -24,10 +24,12 @@ import { AiChatBot } from './components/AiChatBot';
 import { supabase } from './supabaseClient';
 import apiClient from './api/client';
 import { Wishlist } from './pages/Wishlist';
+import { Cart } from './pages/Cart';
 import { AdminRoute } from './components/AdminRoute';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUsers } from './pages/admin/AdminUsers';
 import { AdminListings } from './pages/admin/AdminListings';
+import { AdminEvents } from './pages/admin/AdminEvents';
 import { GlobalNotifications } from './components/GlobalNotifications';
 
 const ProtectedRoute = () => {
@@ -157,6 +159,8 @@ function App() {
           <Route path="/sell" element={<ListComponent />} />
           <Route path="/edit-component/:id" element={<EditComponent />} />
           <Route path="/checkout/:id" element={<CheckoutPayment />} />
+          <Route path="/checkout" element={<CheckoutPayment />} />
+          <Route path="/cart" element={<Cart />} />
           <Route path="/order-success" element={<OrderSuccess />} />
           <Route path="/my-orders" element={<MyOrders />} />
           <Route path="/seller-orders" element={<SellerOrders />} />
@@ -178,6 +182,7 @@ function App() {
             <Route index element={<Navigate to="/admin/users" replace />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="listings" element={<AdminListings />} />
+            <Route path="events" element={<AdminEvents />} />
           </Route>
         </Route>
       </Routes>

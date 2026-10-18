@@ -6,7 +6,8 @@ export const AdminDashboard = () => {
 
   const navItems = [
     { path: '/admin/users', label: 'Users', icon: 'group' },
-    { path: '/admin/listings', label: 'Listings', icon: 'inventory_2' }
+    { path: '/admin/listings', label: 'Listings', icon: 'inventory_2' },
+    { path: '/admin/events', label: 'Event Requests', icon: 'campaign' }
   ];
 
   return (

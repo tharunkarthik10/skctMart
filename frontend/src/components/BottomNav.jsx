@@ -48,9 +48,17 @@ export const BottomNav = () => {
 
     fetchUnread();
 
+    const chatChannel = realtimeService.subscribeToChatsInbox(payload => {
+      const newChat = payload.new;
+      if (newChat && !chatIds.includes(newChat.id)) {
+        chatIds.push(newChat.id);
+        fetchUnread();
+      }
+    });
+
     const channel = realtimeService.subscribeToBottomNavBadge(payload => {
       const msg = payload.new;
-      if (msg.sender_id !== currentUser.id && chatIds.includes(msg.chat_id)) {
+      if (msg.sender_id !== currentUser.id && (chatIds.includes(msg.chat_id) || msg.receiver_id === currentUser.id)) {
         // If we are currently viewing this chat, don't increment badge
         if (location.pathname !== `/chat/${msg.chat_id}`) {
           setUnreadCount(prev => prev + 1);
@@ -68,6 +76,7 @@ export const BottomNav = () => {
 
     return () => {
       realtimeService.unsubscribe(channel);
+      if (chatChannel) realtimeService.unsubscribe(chatChannel);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('chatReadUpdate', handleStorageChange);
     };

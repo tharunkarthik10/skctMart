@@ -31,7 +31,7 @@ export const OrderSuccess = () => {
         
         <h1 className="text-h1 mb-2">Order Confirmed!</h1>
         <p className="text-body text-[var(--color-text-secondary)] mb-8 text-lg">
-          Your Cash on Delivery order is placed. An automated message was sent to the seller's inbox.
+          Your Pay on Handover order is placed. An automated message was sent to the seller's inbox.
         </p>
 
         {/* Product Details Card */}
@@ -54,7 +54,7 @@ export const OrderSuccess = () => {
                </div>
                <div>
                  <p className="text-xs text-[var(--color-text-secondary)] font-bold uppercase tracking-wider mb-1">Payment Method</p>
-                 <p className="text-sm font-bold text-[var(--color-primary)]">Cash on Delivery (COD)</p>
+                 <p className="text-sm font-bold text-[var(--color-primary)]">Pay on Handover (Cash / UPI)</p>
                </div>
             </div>
             {orderDetails.orderId && (

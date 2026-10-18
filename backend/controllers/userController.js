@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import prisma from '../config/prisma.js';
 import * as UserService from '../services/userService.js';
 import { emitUserUpdate } from '../services/socketService.js';
 
@@ -207,3 +208,39 @@ export const rejectEditAccess = async (req, res, next) => {
         next(error);
     }
 };
+
+export const blockUserByEmail = async (req, res, next) => {
+    try {
+        const { email, block = true } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const ADMIN_EMAILS = ['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'];
+        const isRequesterAdmin = ADMIN_EMAILS.includes((req.user?.email || '').toLowerCase().trim()) || req.user?.id === 'admin-user-001';
+        if (!isRequesterAdmin) return res.status(403).json({ error: 'Forbidden: Admin access required' });
+
+        const normalizedEmail = email.toLowerCase().trim();
+        let user = await UserService.getUserByEmail(normalizedEmail);
+
+        if (!user) {
+            user = await prisma.user.create({
+                data: {
+                    id: `blocked-${Date.now()}`,
+                    email: normalizedEmail,
+                    is_blocked: block,
+                    role: 'Blocked'
+                }
+            });
+        } else {
+            user = await UserService.updateUser(user.id, { is_blocked: block });
+        }
+
+        emitUserUpdate(user);
+        res.status(200).json({
+            message: block ? `User ${email} has been blocked from accessing the website, products, and posting events.` : `User ${email} has been unblocked.`,
+            user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+

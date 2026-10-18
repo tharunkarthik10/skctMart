@@ -96,3 +96,12 @@ export const emitComponentUpdate = (component) => {
     io.to('admin').emit('postgres_changes:components:UPDATE', payload);
     io.emit('postgres_changes:components:UPDATE', payload);
 };
+
+export const emitNewBid = (bid, component, sellerId) => {
+    if (!io) return;
+    const payload = { new: bid, component };
+    if (sellerId) {
+        io.to(sellerId).emit('postgres_changes:bids:INSERT', payload);
+    }
+    io.emit('auction:bid_update', { componentId: component.id, bid, newPrice: component.price });
+};

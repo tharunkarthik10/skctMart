@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { getSellerName, getProductDatePosted } from '../utils/productUtils';
+import { getCartCount } from '../utils/cartStorage';
 
 export const Wishlist = () => {
   const navigate = useNavigate();
   const [wishlist, setWishlist] = useState([]);
+  const [cartCount, setCartCount] = useState(() => getCartCount());
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -20,9 +22,17 @@ export const Wishlist = () => {
       }
     };
     
+    const handleCartUpdate = () => {
+      setCartCount(getCartCount());
+    };
+
     loadWishlist();
     window.addEventListener('wishlistUpdate', loadWishlist);
-    return () => window.removeEventListener('wishlistUpdate', loadWishlist);
+    window.addEventListener('cartUpdate', handleCartUpdate);
+    return () => {
+      window.removeEventListener('wishlistUpdate', loadWishlist);
+      window.removeEventListener('cartUpdate', handleCartUpdate);
+    };
   }, []);
 
   const removeFromWishlist = (id) => {
@@ -37,11 +47,19 @@ export const Wishlist = () => {
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
         <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="btn-icon">
+            <button onClick={() => navigate(-1)} className="btn-icon" title="Go back">
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
             <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">My Wishlist</h1>
           </div>
+          <button className="btn-icon relative" onClick={() => navigate('/cart')} title="Shopping Cart">
+            <span className="material-symbols-outlined text-[var(--color-primary)]">shopping_cart</span>
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[var(--color-primary)] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full border-2 border-[var(--color-surface)] animate-in zoom-in">
+                {cartCount}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 

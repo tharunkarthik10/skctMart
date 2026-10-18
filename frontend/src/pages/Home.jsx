@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
-import { PRODUCTS } from '../data/products';
 import apiClient from '../api/client';
 import { getWishlist, toggleWishlist } from '../utils/wishlistStorage';
+import { addToCart, getCartCount } from '../utils/cartStorage';
 import { getSellerName, getProductDatePosted } from '../utils/productUtils';
+import { realtimeService } from '../services/realtimeService';
+import { PostEventModal } from '../components/PostEventModal';
 
 const BANNERS = [
   {
@@ -68,9 +70,6 @@ const BANNERS = [
   }
 ];
 
-const RECENT_PRODUCTS = PRODUCTS.filter(p => !p.isAuction).slice(0, 8);
-const LIVE_AUCTIONS = PRODUCTS.filter(p => p.isAuction).slice(0, 5);
-
 export const Home = () => {
   const navigate = useNavigate();
   const [activeBanner, setActiveBanner] = useState(0);
@@ -78,13 +77,23 @@ export const Home = () => {
   const [components, setComponents] = useState([]);
   const [userCount, setUserCount] = useState('1,256');
   const [wishlistIds, setWishlistIds] = useState(() => getWishlist().map(item => item.id));
+  const [cartCount, setCartCount] = useState(() => getCartCount());
+  const [toastProduct, setToastProduct] = useState(null);
+  const [showPostEventModal, setShowPostEventModal] = useState(false);
 
   useEffect(() => {
     const handleWishlistUpdate = () => {
       setWishlistIds(getWishlist().map(item => item.id));
     };
+    const handleCartUpdate = () => {
+      setCartCount(getCartCount());
+    };
     window.addEventListener('wishlistUpdate', handleWishlistUpdate);
-    return () => window.removeEventListener('wishlistUpdate', handleWishlistUpdate);
+    window.addEventListener('cartUpdate', handleCartUpdate);
+    return () => {
+      window.removeEventListener('wishlistUpdate', handleWishlistUpdate);
+      window.removeEventListener('cartUpdate', handleCartUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -108,6 +117,12 @@ export const Home = () => {
           name: comp.title,
           price: `₹${comp.price}`,
           originalPrice: `₹${comp.price + 200}`,
+          currentBid: `₹${comp.price}`,
+          marketPrice: `₹${comp.price + 200}`,
+          timeLeft: 'Live',
+          heat: 'Trending',
+          heatIcon: '🔥',
+          bidders: comp.bids?.length ? `${comp.bids.length}` : '3',
           condition: comp.condition,
           status: comp.status === 'ACTIVE' ? 'Available' : 'Sold',
           rating: '5.0',
@@ -129,6 +144,44 @@ export const Home = () => {
       }
     };
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    const bidSub = realtimeService.subscribeToAuctionBids((payload) => {
+      if (payload.componentId && payload.newPrice) {
+        setComponents(prev => prev.map(c => {
+          if (c.id === payload.componentId) {
+            return {
+              ...c,
+              price: `₹${payload.newPrice}`,
+              originalPrice: `₹${payload.newPrice + 200}`
+            };
+          }
+          return c;
+        }));
+      }
+    });
+
+    const compSub = realtimeService.subscribeToComponentUpdates((payload) => {
+      const updated = payload.new;
+      if (updated?.id) {
+        setComponents(prev => prev.map(c => {
+          if (c.id === updated.id) {
+            return {
+              ...c,
+              price: `₹${updated.price}`,
+              status: updated.status === 'ACTIVE' ? 'Available' : 'Sold'
+            };
+          }
+          return c;
+        }));
+      }
+    });
+
+    return () => {
+      realtimeService.unsubscribe(bidSub);
+      realtimeService.unsubscribe(compSub);
+    };
   }, []);
 
   const getCategoryCount = (categoryName) => {
@@ -213,10 +266,18 @@ export const Home = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="btn-icon" onClick={() => navigate('/wishlist')}>
+            <button className="btn-icon" onClick={() => navigate('/wishlist')} title="Wishlist">
               <span className="material-symbols-outlined text-[var(--color-danger)]">favorite</span>
             </button>
-            <button className="btn-icon" onClick={() => setIsFilterOpen(true)}>
+            <button className="btn-icon relative" onClick={() => navigate('/cart')} title="Shopping Cart">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">shopping_cart</span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[var(--color-primary)] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full border-2 border-[var(--color-surface)] animate-in zoom-in">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            <button className="btn-icon" onClick={() => setIsFilterOpen(true)} title="Filter">
               <span className="material-symbols-outlined">tune</span>
             </button>
           </div>
@@ -331,9 +392,13 @@ export const Home = () => {
                   >
                     <div 
                       onClick={() => {
+                        if (banner.isHostEventCard) {
+                          setShowPostEventModal(true);
+                          return;
+                        }
                         if (banner.link && banner.link.startsWith('http')) {
                           window.open(banner.link, '_blank', 'noopener,noreferrer');
-                        } else {
+                        } else if (banner.link) {
                           navigate(banner.link);
                         }
                       }}
@@ -347,10 +412,15 @@ export const Home = () => {
                       </div>
 
                       <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (banner.isHostEventCard) {
+                            setShowPostEventModal(true);
+                            return;
+                          }
                           if (banner.link && banner.link.startsWith('http')) {
                             window.open(banner.link, '_blank', 'noopener,noreferrer');
-                          } else {
+                          } else if (banner.link) {
                             navigate(banner.link);
                           }
                         }}
@@ -371,6 +441,30 @@ export const Home = () => {
                     className={`h-2 rounded-full transition-all duration-300 ${activeBanner === idx ? 'w-6 bg-[var(--color-primary)]' : 'w-2 bg-[var(--color-border)]'}`}
                   />
                 ))}
+              </div>
+
+              {/* Post New Event Action Callout */}
+              <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm hover:border-[var(--color-primary)]/40 transition-colors">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-[var(--color-primary)]/15 text-[var(--color-primary)] flex items-center justify-center font-bold shrink-0">
+                    <span className="material-symbols-outlined text-2xl">campaign</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm sm:text-base text-[var(--color-text-primary)]">
+                      Organizing a Hackathon, Expo or Workshop?
+                    </h4>
+                    <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                      Submit your event proposal, posters & registration links. Admin will review and feature it live!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPostEventModal(true)}
+                  className="btn-primary py-2.5 px-6 text-xs sm:text-sm font-bold flex items-center gap-2 whitespace-nowrap shadow-md active:scale-95 shrink-0"
+                >
+                  <span className="material-symbols-outlined text-base">add_circle</span>
+                  Post New Event
+                </button>
               </div>
             </div>
           </div>
@@ -492,6 +586,7 @@ export const Home = () => {
             </button>
           </div>
 
+          {allRecent.length > 0 ? (
           <div className="flex overflow-x-auto gap-5 pb-4 pt-2 px-1 -mx-1 hide-scrollbar snap-x">
             {allRecent.map((product) => (
               <div
@@ -502,7 +597,14 @@ export const Home = () => {
                 {/* Image Section */}
                 <div className="w-full aspect-square bg-[var(--color-background)] relative overflow-hidden flex items-center justify-center border-b border-[var(--color-border)]">
                   {product.image ? (
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/800/800?random=${product.id}`; }} />
+                    <img 
+                      src={product.image} 
+                      alt={product.name} 
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/800/800?random=${product.id}`; }} 
+                    />
                   ) : (
                     <span className="material-symbols-outlined text-[64px] text-[var(--color-border)] group-hover:scale-110 transition-transform duration-500">memory</span>
                   )}
@@ -551,11 +653,25 @@ export const Home = () => {
 
                   <h3 className="text-lg font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">{product.name}</h3>
 
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-bold text-[var(--color-text-primary)] leading-none">{product.price}</span>
-                    {product.originalPrice && (
-                      <span className="text-sm text-[var(--color-text-secondary)] line-through leading-none font-medium">{product.originalPrice}</span>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xl font-bold text-[var(--color-text-primary)] leading-none">{product.price}</span>
+                      {product.originalPrice && (
+                        <span className="text-sm text-[var(--color-text-secondary)] line-through leading-none font-medium">{product.originalPrice}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(product, 1);
+                        setToastProduct(product);
+                        setTimeout(() => setToastProduct(null), 4000);
+                      }}
+                      className="w-8 h-8 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm"
+                      title="Add to Cart"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                    </button>
                   </div>
 
                   {/* Seller Name & College */}
@@ -573,6 +689,17 @@ export const Home = () => {
               </div>
             ))}
           </div>
+          ) : (
+            <div className="p-8 text-center bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl flex flex-col items-center justify-center">
+              <span className="material-symbols-outlined text-4xl text-[var(--color-text-secondary)] mb-2">inventory_2</span>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">No products listed yet</p>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">Be the first student to list a component!</p>
+              <button onClick={() => navigate('/list')} className="btn-primary mt-3 text-xs py-1.5 px-4 inline-flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base">add</span>
+                List a Component
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Live Auctions */}
@@ -588,6 +715,7 @@ export const Home = () => {
             </button>
           </div>
 
+          {allAuctions.length > 0 ? (
           <div className="flex overflow-x-auto gap-5 pb-4 pt-2 px-1 -mx-1 hide-scrollbar snap-x">
             {allAuctions.map((auction) => (
               <div
@@ -601,7 +729,14 @@ export const Home = () => {
                 {/* Image Section */}
                 <div className="w-full aspect-square bg-[var(--color-background)] relative overflow-hidden flex items-center justify-center border-b border-[var(--color-border)]">
                   {auction.image ? (
-                    <img src={auction.image} alt={auction.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/800/800?random=${auction.id}`; }} />
+                    <img 
+                      src={auction.image} 
+                      alt={auction.name} 
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      onError={(e) => { e.target.onerror = null; e.target.src = `https://picsum.photos/800/800?random=${auction.id}`; }} 
+                    />
                   ) : (
                     <span className="material-symbols-outlined text-[64px] text-[var(--color-border)] group-hover:scale-110 transition-transform duration-500">memory</span>
                   )}
@@ -670,8 +805,51 @@ export const Home = () => {
               </div>
             ))}
           </div>
+          ) : (
+            <div className="p-8 text-center bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl flex flex-col items-center justify-center">
+              <span className="material-symbols-outlined text-4xl text-[var(--color-text-secondary)] mb-2">gavel</span>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">No live auctions right now</p>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">Check back soon or list your own auction!</p>
+            </div>
+          )}
         </section>
       </main>
+
+      {/* Added to Cart Toast Notification */}
+      {toastProduct && (
+        <div className="fixed top-20 right-4 sm:right-8 z-[9999] w-[92vw] max-w-md bg-[var(--color-surface)] border-2 border-[var(--color-primary)] rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)] text-white flex items-center justify-center shrink-0 shadow-md">
+              <span className="material-symbols-outlined text-[22px]">check</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[var(--color-text-primary)]">Added to Cart!</p>
+              <p className="text-xs text-[var(--color-text-secondary)] truncate max-w-[200px]">{toastProduct.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate('/cart')}
+              className="btn-primary py-2 px-3.5 text-xs font-bold shadow-sm whitespace-nowrap"
+            >
+              View Cart
+            </button>
+            <button
+              onClick={() => setToastProduct(null)}
+              className="p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors rounded-lg hover:bg-[var(--color-background)]"
+              title="Close"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Post Event Modal */}
+      <PostEventModal
+        isOpen={showPostEventModal}
+        onClose={() => setShowPostEventModal(false)}
+      />
 
       <BottomNav />
     </div>

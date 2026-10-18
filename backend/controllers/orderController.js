@@ -89,6 +89,90 @@ export const cancelOrder = async (req, res) => {
 
 export const createCodOrder = async (req, res) => {
     try {
+        const buyerId = req.user.id;
+        const { deliveryAddress } = req.body;
+
+        // Support Multi-Item Cart Checkout
+        if (req.body.items && Array.isArray(req.body.items) && req.body.items.length > 0) {
+            const createdOrders = [];
+            let lastChatId = null;
+
+            for (const item of req.body.items) {
+                const itemProdId = item.id || item.productId;
+                const itemProdName = item.name || item.productName || item.title;
+                const itemImg = item.image || item.productImage || (item.images && item.images[0]) || null;
+                const itemQty = Number(item.quantity) || 1;
+                const itemPrice = Number(item.numericPrice) || Number(String(item.price).replace(/[^0-9]/g, '')) || 0;
+                const itemSubtotal = itemPrice * itemQty;
+                const itemGrandTotal = itemSubtotal;
+
+                let sellerId = item.sellerId || item.seller?.id;
+                if (!sellerId && itemProdId) {
+                    try {
+                        const comp = await prisma.component.findUnique({ where: { id: itemProdId } });
+                        if (comp?.seller_id) sellerId = comp.seller_id;
+                    } catch (e) {}
+                }
+                if (!sellerId) sellerId = buyerId;
+
+                const orderId = `POH_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+                const orderData = {
+                    orderId,
+                    buyerId,
+                    sellerId,
+                    productId: itemProdId,
+                    productName: itemProdName,
+                    productImage: itemImg,
+                    quantity: itemQty,
+                    price: itemGrandTotal,
+                    subtotal: itemSubtotal,
+                    platformFee: 0,
+                    deliveryFee: 0,
+                    gst: 0,
+                    grandTotal: itemGrandTotal,
+                    paymentId: `POH_PAY_${Date.now()}`,
+                    status: 'Placed',
+                    orderStatus: 'Pending',
+                    paymentStatus: 'Pay on Handover',
+                    deliveryAddress: deliveryAddress || 'Campus Meetup',
+                    createdAt: new Date().toISOString()
+                };
+
+                const newOrder = await OrderService.createOrder(orderData);
+                createdOrders.push(newOrder);
+
+                try {
+                    const chat = await ChatService.getOrCreateChat(buyerId, sellerId, itemProdId);
+                    lastChatId = chat?.id;
+                    const orderPayload = {
+                        type: 'ORDER_CONFIRMATION',
+                        orderId,
+                        productId: itemProdId,
+                        productName: itemProdName,
+                        productImage: itemImg,
+                        quantity: itemQty,
+                        grandTotal: itemGrandTotal,
+                        paymentMethod: 'Pay on Handover (Cash / UPI)',
+                        deliveryAddress: deliveryAddress || 'Campus Meetup',
+                        note: `I have placed a Pay on Handover order for ${itemQty}x "${itemProdName}" (₹${itemGrandTotal}). Let's coordinate here for the on-campus handover!`
+                    };
+                    const messageText = JSON.stringify(orderPayload);
+                    const automatedMessage = await MessageService.createMessage(chat.id, buyerId, sellerId, messageText);
+                    emitNewChat(chat, buyerId, sellerId);
+                    emitNewMessage(automatedMessage, sellerId);
+                } catch (chatError) {
+                    console.error('Failed to automate message to seller:', chatError);
+                }
+            }
+
+            return res.status(201).json({
+                success: true,
+                orders: createdOrders,
+                chatId: lastChatId,
+                message: 'Orders placed successfully via Pay on Handover (Cash / UPI)'
+            });
+        }
+
         const {
             productId,
             productName,
@@ -99,11 +183,8 @@ export const createCodOrder = async (req, res) => {
             subtotal,
             platformFee = 20,
             deliveryFee = 0,
-            gst = 0,
-            deliveryAddress
+            gst = 0
         } = req.body;
-
-        const buyerId = req.user.id;
 
         // Resolve sellerId if missing from body
         let resolvedSellerId = providedSellerId;
@@ -119,11 +200,11 @@ export const createCodOrder = async (req, res) => {
             resolvedSellerId = buyerId;
         }
 
-        const codOrderId = `COD_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+        const pohOrderId = `POH_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
         const grandTotal = Number(price) || (Number(subtotal) + Number(platformFee) + Number(deliveryFee));
 
         const orderData = {
-            orderId: codOrderId,
+            orderId: pohOrderId,
             buyerId,
             sellerId: resolvedSellerId,
             productId,
@@ -136,10 +217,10 @@ export const createCodOrder = async (req, res) => {
             deliveryFee: Number(deliveryFee) || 0,
             gst: Number(gst) || 0,
             grandTotal: grandTotal,
-            paymentId: `COD_PAY_${Date.now()}`,
+            paymentId: `POH_PAY_${Date.now()}`,
             status: 'Placed',
             orderStatus: 'Pending',
-            paymentStatus: 'Cash on Delivery',
+            paymentStatus: 'Pay on Handover',
             deliveryAddress: deliveryAddress || 'Campus Meetup',
             createdAt: new Date().toISOString()
         };
@@ -153,15 +234,15 @@ export const createCodOrder = async (req, res) => {
             chat = await ChatService.getOrCreateChat(buyerId, resolvedSellerId, productId);
             const orderPayload = {
                 type: 'ORDER_CONFIRMATION',
-                orderId: codOrderId,
+                orderId: pohOrderId,
                 productId,
                 productName,
                 productImage: productImage || null,
                 quantity: Number(quantity) || 1,
                 grandTotal,
-                paymentMethod: 'Cash on Delivery',
+                paymentMethod: 'Pay on Handover (Cash / UPI)',
                 deliveryAddress: deliveryAddress || 'Campus Meetup',
-                note: `I have placed a Cash on Delivery order for ${quantity}x "${productName}" (₹${grandTotal}). Let's coordinate here for the on-campus handover!`
+                note: `I have placed a Pay on Handover order for ${quantity}x "${productName}" (₹${grandTotal}). Let's coordinate here for the on-campus handover!`
             };
             const messageText = JSON.stringify(orderPayload);
             automatedMessage = await MessageService.createMessage(chat.id, buyerId, resolvedSellerId, messageText);
@@ -175,11 +256,11 @@ export const createCodOrder = async (req, res) => {
             success: true,
             order: newOrder,
             chatId: chat?.id,
-            message: 'Order placed successfully via Cash on Delivery'
+            message: 'Order placed successfully via Pay on Handover (Cash / UPI)'
         });
     } catch (error) {
-        console.error('Error creating COD order:', error);
-        res.status(500).json({ error: 'Failed to place COD order' });
+        console.error('Error creating order:', error);
+        res.status(500).json({ error: 'Failed to place order' });
     }
 };
 

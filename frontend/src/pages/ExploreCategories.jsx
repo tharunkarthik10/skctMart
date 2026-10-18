@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { getCartCount } from '../utils/cartStorage';
 
 export const ExploreCategories = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [cartCount, setCartCount] = useState(() => getCartCount());
+
+  useEffect(() => {
+    const handleCartUpdate = () => setCartCount(getCartCount());
+    window.addEventListener('cartUpdate', handleCartUpdate);
+    return () => window.removeEventListener('cartUpdate', handleCartUpdate);
+  }, []);
 
   const handleSearch = (e) => {
     if (e.key === 'Enter' && searchQuery.trim() !== '') {
@@ -22,8 +30,16 @@ export const ExploreCategories = () => {
             <button onClick={() => navigate(-1)} aria-label="Go back" className="btn-icon">
               <span className="material-symbols-outlined text-[var(--color-primary)]">arrow_back</span>
             </button>
-            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Explore</h1>
+            <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">Explore Categories</h1>
           </div>
+          <button className="btn-icon relative" onClick={() => navigate('/cart')} title="Shopping Cart">
+            <span className="material-symbols-outlined text-[var(--color-primary)]">shopping_cart</span>
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[var(--color-primary)] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full border-2 border-[var(--color-surface)] animate-in zoom-in">
+                {cartCount}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 

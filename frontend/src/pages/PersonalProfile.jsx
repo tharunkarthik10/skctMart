@@ -3,11 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import apiClient, { API_URL } from '../api/client';
 import { BottomNav } from '../components/BottomNav';
+import { getCartCount } from '../utils/cartStorage';
 
 export const PersonalProfile = () => {
   const navigate = useNavigate();
   const [userData, setUserData] = useState(null);
   const [stats, setStats] = useState({ listed: 0, sold: 0 });
+  const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -40,6 +43,25 @@ export const PersonalProfile = () => {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const updateCounts = () => {
+      try {
+        setCartCount(getCartCount());
+      } catch (e) {}
+      try {
+        const storedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+        setWishlistCount(Array.isArray(storedWishlist) ? storedWishlist.length : 0);
+      } catch (e) {}
+    };
+    updateCounts();
+    window.addEventListener('cartUpdate', updateCounts);
+    window.addEventListener('wishlistUpdate', updateCounts);
+    return () => {
+      window.removeEventListener('cartUpdate', updateCounts);
+      window.removeEventListener('wishlistUpdate', updateCounts);
+    };
+  }, []);
 
   const handlePushNotifsToggle = async () => {
     const newValue = !pushNotifs;
@@ -489,29 +511,158 @@ export const PersonalProfile = () => {
               </div>
             </div>
             
-            <div className="flex flex-col gap-2.5">
-              <button onClick={() => navigate('/my-orders')} className="btn-secondary flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-[20px]">shopping_bag</span>
-                My Orders
-              </button>
-              <button onClick={() => navigate('/seller-orders')} className="btn-secondary flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-[20px]">storefront</span>
-                Seller Dashboard
-              </button>
-              <button onClick={() => navigate('/wishlist')} className="btn-secondary flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-red-500">favorite</span>
-                My Wishlist
-              </button>
-              {(['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes((authEmail || '').toLowerCase().trim()) || authId === 'admin-user-001') && (
-                <button onClick={() => navigate('/admin')} className="btn-secondary text-[var(--color-primary)] flex items-center justify-center gap-2 border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5">
-                  <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
-                  Admin Portal
+            {/* Quick Navigation Hub Card - 3-Line Fixed Grid in Original Palette */}
+            <div className="card-standard p-3 sm:p-4 border border-[var(--color-border)] shadow-sm space-y-2.5">
+              <div className="px-1 pb-2.5 flex items-center justify-between border-b border-[var(--color-border)]">
+                <span className="text-[11px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px] text-[var(--color-primary)]">widgets</span>
+                  Quick Navigation Hub
+                </span>
+                <span className="text-[10px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-0.5 rounded-full">
+                  Account Menu
+                </span>
+              </div>
+
+              {/* Fixed 3-Line Grid (2 Columns per line) in Original Theme Palette */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-2.5 pt-0.5">
+                {/* Line 1: Orders & Seller Dashboard */}
+                <button
+                  onClick={() => navigate('/my-orders')}
+                  className="h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl bg-[var(--color-surface)] hover:bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-primary)] shadow-sm transition-all flex items-center justify-between text-left group min-w-0"
+                  title="My Orders"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="material-symbols-outlined text-[20px] text-[var(--color-primary)] group-hover:scale-105 transition-transform flex-shrink-0">
+                      shopping_bag
+                    </span>
+                    <span className="font-bold text-xs sm:text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors truncate">
+                      My Orders
+                    </span>
+                  </div>
+                  <span className="material-symbols-outlined text-[16px] text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] group-hover:translate-x-0.5 transition-all flex-shrink-0">
+                    chevron_right
+                  </span>
                 </button>
-              )}
-              <button onClick={handleSignOut} className="btn-danger mt-1">
-                <span className="material-symbols-outlined text-[20px]">logout</span>
-                Sign Out
-              </button>
+
+                <button
+                  onClick={() => navigate('/seller-orders')}
+                  className="h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl bg-[var(--color-surface)] hover:bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-primary)] shadow-sm transition-all flex items-center justify-between text-left group min-w-0"
+                  title="Seller Dashboard"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="material-symbols-outlined text-[20px] text-[var(--color-primary)] group-hover:scale-105 transition-transform flex-shrink-0">
+                      storefront
+                    </span>
+                    <span className="font-bold text-xs sm:text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors truncate">
+                      Seller Dashboard
+                    </span>
+                  </div>
+                  <span className="material-symbols-outlined text-[16px] text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] group-hover:translate-x-0.5 transition-all flex-shrink-0">
+                    chevron_right
+                  </span>
+                </button>
+
+                {/* Line 2: Cart & Wishlist */}
+                <button
+                  onClick={() => navigate('/cart')}
+                  className="h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl bg-[var(--color-surface)] hover:bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-primary)] shadow-sm transition-all flex items-center justify-between text-left group min-w-0"
+                  title="My Shopping Cart"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="material-symbols-outlined text-[20px] text-[var(--color-primary)] group-hover:scale-105 transition-transform flex-shrink-0">
+                      shopping_cart
+                    </span>
+                    <span className="font-bold text-xs sm:text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors truncate">
+                      Shopping Cart
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {cartCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-bold text-[10px]">
+                        {cartCount}
+                      </span>
+                    )}
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] group-hover:translate-x-0.5 transition-all">
+                      chevron_right
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/wishlist')}
+                  className="h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl bg-[var(--color-surface)] hover:bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-primary)] shadow-sm transition-all flex items-center justify-between text-left group min-w-0"
+                  title="My Wishlist"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="material-symbols-outlined text-[20px] text-[var(--color-primary)] group-hover:scale-105 transition-transform flex-shrink-0">
+                      favorite
+                    </span>
+                    <span className="font-bold text-xs sm:text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors truncate">
+                      My Wishlist
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {wishlistCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-bold text-[10px]">
+                        {wishlistCount}
+                      </span>
+                    )}
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] group-hover:translate-x-0.5 transition-all">
+                      chevron_right
+                    </span>
+                  </div>
+                </button>
+
+                {/* Line 3: Admin Portal (if admin) & Sign Out */}
+                {(['tharunkarthikav21@gmail.com', '727824tuio046@skct.edu.in', 'tharunkarthik21112006@gmail.com'].includes((authEmail || '').toLowerCase().trim()) || authId === 'admin-user-001') ? (
+                  <>
+                    <button
+                      onClick={() => navigate('/admin')}
+                      className="h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl bg-[var(--color-surface)] hover:bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-primary)] shadow-sm transition-all flex items-center justify-between text-left group min-w-0"
+                      title="Admin Portal"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-symbols-outlined text-[20px] text-[var(--color-primary)] group-hover:scale-105 transition-transform flex-shrink-0">
+                          admin_panel_settings
+                        </span>
+                        <span className="font-bold text-xs sm:text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors truncate">
+                          Admin Portal
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="px-1.5 py-0.5 rounded-full bg-[var(--color-primary)]/15 text-[var(--color-primary)] font-bold text-[9px] uppercase tracking-wider">
+                          Admin
+                        </span>
+                        <span className="material-symbols-outlined text-[16px] text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)] group-hover:translate-x-0.5 transition-all">
+                          chevron_right
+                        </span>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={handleSignOut}
+                      className="h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white border border-red-500/25 hover:border-red-500 shadow-sm transition-all flex items-center justify-center gap-2 group min-w-0 font-bold text-xs sm:text-sm active:scale-95"
+                      title="Sign Out"
+                    >
+                      <span className="material-symbols-outlined text-[19px] group-hover:scale-105 transition-transform flex-shrink-0">
+                        logout
+                      </span>
+                      <span>Sign Out</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleSignOut}
+                    className="col-span-2 h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-600 hover:text-white border border-red-500/25 hover:border-red-500 shadow-sm transition-all flex items-center justify-center gap-2 group min-w-0 font-bold text-xs sm:text-sm active:scale-95"
+                    title="Sign Out"
+                  >
+                    <span className="material-symbols-outlined text-[19px] group-hover:scale-105 transition-transform flex-shrink-0">
+                      logout
+                    </span>
+                    <span>Sign Out</span>
+                  </button>
+                )}
+              </div>
             </div>
           </aside>
 

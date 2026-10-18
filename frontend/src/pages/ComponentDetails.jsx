@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
-import { PRODUCTS } from '../data/products';
 import apiClient from '../api/client';
 import { supabase } from '../supabaseClient';
 import { getSellerName, getProductDatePosted, formatPostedDate } from '../utils/productUtils';
+import { addToCart, getCartCount } from '../utils/cartStorage';
+import { realtimeService } from '../services/realtimeService';
 
 export const ComponentDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
   const [currentProduct, setCurrentProduct] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(null);
   const [error, setError] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [isInWishlist, setIsInWishlist] = useState(false);
+  const [cartCount, setCartCount] = useState(() => getCartCount());
+  const [addedToast, setAddedToast] = useState(false);
   const [isBidModalOpen, setIsBidModalOpen] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
   const [highestBid, setHighestBid] = useState(0);
@@ -23,6 +27,37 @@ export const ComponentDetails = () => {
   const [bidHistory, setBidHistory] = useState([]);
   const [timeLeftStr, setTimeLeftStr] = useState("Loading...");
   const [auctionEndDate, setAuctionEndDate] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!currentProduct?.id || !currentProduct?.isAuction) return;
+
+    const bidSub = realtimeService.subscribeToAuctionBids((payload) => {
+      if (payload.componentId === currentProduct.id) {
+        const newPrice = payload.newPrice || payload.bid?.amount;
+        if (newPrice) {
+          setHighestBid(newPrice);
+          setBidAmount((newPrice + 10).toString());
+          setCurrentProduct(prev => prev ? { ...prev, price: newPrice } : prev);
+        }
+        if (payload.bid) {
+          setBidHistory(prev => {
+            const exists = prev.some(b => b.id === payload.bid.id);
+            return exists ? prev : [payload.bid, ...prev];
+          });
+        }
+      }
+    });
+
+    return () => {
+      realtimeService.unsubscribe(bidSub);
+    };
+  }, [currentProduct?.id, currentProduct?.isAuction]);
 
   useEffect(() => {
     if (currentProduct?.isAuction) {
@@ -69,23 +104,17 @@ export const ComponentDetails = () => {
         let comp = null;
         let allComps = [];
 
-        try {
-          const response = await apiClient.get(`/components/${id}`);
-          comp = response.data;
-        } catch (apiErr) {
-          const staticFallback = PRODUCTS.find(p => String(p.id) === String(id));
-          if (staticFallback) {
-            comp = staticFallback;
-          } else {
-            throw apiErr;
-          }
+        const response = await apiClient.get(`/components/${id}`);
+        comp = response.data;
+        if (!comp) {
+          throw new Error('Component not found');
         }
 
         try {
           const allRes = await apiClient.get(`/components`);
           allComps = allRes.data || [];
         } catch (e) {
-          allComps = PRODUCTS;
+          allComps = [];
         }
 
         const rawPrice = comp.price;
@@ -131,7 +160,7 @@ export const ComponentDetails = () => {
           whySell: comp.why_sell || ''
         };
         
-        const related = (allComps.length > 0 ? allComps : PRODUCTS)
+        const related = allComps
           .filter(c => String(c.id) !== String(id))
           .map(c => ({
             id: c.id,
@@ -181,6 +210,34 @@ export const ComponentDetails = () => {
       setIsInWishlist(true);
     }
     window.dispatchEvent(new Event('wishlistUpdate'));
+  };
+
+  useEffect(() => {
+    const handleCartUpdate = () => {
+      setCartCount(getCartCount());
+    };
+    window.addEventListener('cartUpdate', handleCartUpdate);
+    return () => window.removeEventListener('cartUpdate', handleCartUpdate);
+  }, []);
+
+  const handleAddToCart = async () => {
+    if (!currentProduct) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Please log in to add items to your cart.");
+      navigate('/login');
+      return;
+    }
+    if (currentProduct.seller?.id && user.id === currentProduct.seller.id) {
+      alert("This is your own listing! You cannot add your own item to cart.");
+      return;
+    }
+
+    addToCart(currentProduct, 1);
+    setAddedToast(true);
+    setTimeout(() => {
+      setAddedToast(false);
+    }, 4000);
   };
 
   const handleShare = async () => {
@@ -233,6 +290,7 @@ export const ComponentDetails = () => {
   }
 
   const DUMMY_PRODUCT = currentProduct;
+  const isAuctionOwner = Boolean(currentUser && currentProduct?.seller?.id && currentUser.id === currentProduct.seller.id);
 
   return (
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
@@ -247,12 +305,20 @@ export const ComponentDetails = () => {
             <h1 className="text-xl font-bold text-[var(--color-primary)] tracking-tight">MakerMart</h1>
           </div>
           <div className="flex items-center gap-2">
-            <button className="btn-icon" onClick={() => navigate('/wishlist')}>
+            <button className="btn-icon" onClick={() => navigate('/wishlist')} title="Wishlist">
               <span className="material-symbols-outlined text-[var(--color-danger)]">
                 {isInWishlist ? 'favorite' : 'favorite_border'}
               </span>
             </button>
-            <button className="btn-icon" onClick={handleShare}>
+            <button className="btn-icon relative" onClick={() => navigate('/cart')} title="Shopping Cart">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">shopping_cart</span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[var(--color-primary)] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full border-2 border-[var(--color-surface)] animate-in zoom-in">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            <button className="btn-icon" onClick={handleShare} title="Share">
               <span className="material-symbols-outlined">share</span>
             </button>
           </div>
@@ -389,47 +455,50 @@ export const ComponentDetails = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+              <div className="flex flex-col gap-3 mt-4">
                 {currentProduct.isAuction ? (
                   <button 
                     onClick={async () => {
                       const { data: { user } } = await supabase.auth.getUser();
                       if (!user) {
-                        alert("Please log in to join the auction.");
+                        alert("Please log in to view or join the auction.");
                         return;
                       }
-                      try {
-                        const { data: profile } = await apiClient.get(`/users/${user.id}`);
-                        if (!profile.is_profile_verified) {
-                          alert("Your profile is pending admin verification. You can only join auctions after verification.");
-                          return;
-                        }
-                        const currentPrice = parseInt(String(currentProduct.price).replace(/[^0-9]/g, ''), 10) || 0;
+                      const isOwner = Boolean(currentProduct.seller?.id && user.id === currentProduct.seller.id);
+                      if (!isOwner) {
                         try {
-                          const { data: bids } = await apiClient.get(`/components/${currentProduct.id}/bids`);
-                          if (bids && bids.length > 0) {
-                            setHighestBid(bids[0].amount);
-                            setBidAmount((bids[0].amount + 10).toString());
-                            setBidHistory(bids);
-                          } else {
-                            setHighestBid(currentPrice);
-                            setBidAmount((currentPrice + 10).toString());
-                            setBidHistory([]);
+                          const { data: profile } = await apiClient.get(`/users/${user.id}`);
+                          if (!profile.is_profile_verified) {
+                            alert("Your profile is pending admin verification. You can only join auctions after verification.");
+                            return;
                           }
-                        } catch (e) {
+                        } catch (err) {
+                          console.error("Error checking verification:", err);
+                        }
+                      }
+                      const currentPrice = parseInt(String(currentProduct.price).replace(/[^0-9]/g, ''), 10) || 0;
+                      try {
+                        const { data: bids } = await apiClient.get(`/components/${currentProduct.id}/bids`);
+                        if (bids && bids.length > 0) {
+                          setHighestBid(bids[0].amount);
+                          setBidAmount((bids[0].amount + 10).toString());
+                          setBidHistory(bids);
+                        } else {
                           setHighestBid(currentPrice);
                           setBidAmount((currentPrice + 10).toString());
+                          setBidHistory([]);
                         }
-                        setBidSuccess(false);
-                        setIsBidModalOpen(true);
-                      } catch (err) {
-                        console.error("Error checking verification:", err);
+                      } catch (e) {
+                        setHighestBid(currentPrice);
+                        setBidAmount((currentPrice + 10).toString());
                       }
+                      setBidSuccess(false);
+                      setIsBidModalOpen(true);
                     }}
-                    className="btn-auction col-span-1 sm:col-span-2 py-4 text-lg"
+                    className="btn-auction w-full py-4 text-lg flex items-center justify-center gap-2 shadow-lg"
                   >
                     <span className="material-symbols-outlined text-[24px]">gavel</span>
-                    Join Auction
+                    <span>{isAuctionOwner ? "View Live Auction Bids (Owner)" : "Join Live Auction & Bid"}</span>
                   </button>
                 ) : (
                   <button 
@@ -454,60 +523,87 @@ export const ComponentDetails = () => {
                         console.error("Error checking verification:", err);
                       }
                     }} 
-                    className="btn-primary col-span-1 sm:col-span-2 py-4 text-lg"
+                    className="btn-primary w-full py-4 text-lg font-black flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.99] transition-all"
                   >
-                    <span className="material-symbols-outlined text-[24px]">shopping_cart</span>
-                    Buy Now
+                    <span className="material-symbols-outlined text-[24px]">bolt</span>
+                    <span>Buy Now</span>
                   </button>
                 )}
-                
-                <button onClick={async (e) => {
-                  const btn = e.currentTarget;
-                  const originalHtml = btn.innerHTML;
-                  btn.disabled = true;
-                  btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-[20px]">sync</span> Starting...';
-                  try {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) {
-                      alert("Please log in to chat.");
-                      btn.disabled = false;
-                      btn.innerHTML = originalHtml;
-                      return;
-                    }
-                    if (currentProduct.seller?.id && user.id === currentProduct.seller.id) {
-                      alert("This is your own listing! You can manage or edit it from your profile.");
-                      btn.disabled = false;
-                      btn.innerHTML = originalHtml;
-                      return;
-                    }
-                    const { data: profile } = await apiClient.get(`/users/${user.id}`);
-                    if (!profile.is_profile_verified) {
-                      alert("Your profile is pending admin verification. You can only chat after verification.");
-                      btn.disabled = false;
-                      btn.innerHTML = originalHtml;
-                      return;
-                    }
 
-                    const sellerId = currentProduct.seller?.id || 'maker-1';
-                    const res = await apiClient.post('/chats', {
-                      seller_id: sellerId,
-                      component_id: currentProduct.id
-                    });
-                    navigate(`/chat/${res.data.id}`);
-                  } catch (err) {
-                    console.error("Error creating chat:", err);
-                    alert("Could not start chat.");
-                    btn.disabled = false;
-                    btn.innerHTML = originalHtml;
-                  }
-                }} className="btn-secondary py-3.5">
-                  <span className="material-symbols-outlined text-[20px]">chat</span>
-                  Chat with Seller
-                </button>
-                <button onClick={toggleWishlist} className={`btn-secondary py-3.5 group ${isInWishlist ? 'text-[var(--color-danger)] border-[var(--color-danger)]' : ''}`}>
-                  <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform" style={isInWishlist ? {fontVariationSettings: "'FILL' 1"} : {}}>favorite</span>
-                  {isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                </button>
+                {/* Remaining 3 Action Buttons below Buy Now */}
+                <div className={`grid gap-2.5 ${currentProduct.isAuction ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                  {!currentProduct.isAuction && (
+                    <button 
+                      onClick={handleAddToCart}
+                      className="py-3 px-3 text-sm font-bold bg-[var(--color-primary)]/10 text-[var(--color-primary-dark)] hover:bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">add_shopping_cart</span>
+                      <span>Add to Cart</span>
+                    </button>
+                  )}
+
+                  <button 
+                    onClick={async (e) => {
+                      const btn = e.currentTarget;
+                      const originalHtml = btn.innerHTML;
+                      btn.disabled = true;
+                      btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-[20px]">sync</span> Starting...';
+                      try {
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (!user) {
+                          alert("Please log in to chat.");
+                          btn.disabled = false;
+                          btn.innerHTML = originalHtml;
+                          return;
+                        }
+                        if (currentProduct.seller?.id && user.id === currentProduct.seller.id) {
+                          alert("This is your own listing! You can manage or edit it from your profile.");
+                          btn.disabled = false;
+                          btn.innerHTML = originalHtml;
+                          return;
+                        }
+                        const { data: profile } = await apiClient.get(`/users/${user.id}`);
+                        if (!profile.is_profile_verified) {
+                          alert("Your profile is pending admin verification. You can only chat after verification.");
+                          btn.disabled = false;
+                          btn.innerHTML = originalHtml;
+                          return;
+                        }
+
+                        const sellerId = currentProduct.seller?.id || 'maker-1';
+                        const res = await apiClient.post('/chats', {
+                          seller_id: sellerId,
+                          component_id: currentProduct.id
+                        });
+                        navigate(`/chat/${res.data.id}`);
+                      } catch (err) {
+                        console.error("Error creating chat:", err);
+                        alert("Could not start chat.");
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                      }
+                    }} 
+                    className="btn-secondary py-3 px-3 text-sm flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">chat</span>
+                    <span>Chat with Seller</span>
+                  </button>
+
+                  <button 
+                    onClick={toggleWishlist} 
+                    className={`btn-secondary py-3 px-3 text-sm group flex items-center justify-center gap-2 ${
+                      isInWishlist ? 'text-[var(--color-danger)] border-[var(--color-danger)]' : ''
+                    }`}
+                  >
+                    <span 
+                      className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform" 
+                      style={isInWishlist ? { fontVariationSettings: "'FILL' 1" } : {}}
+                    >
+                      favorite
+                    </span>
+                    <span>{isInWishlist ? 'Wishlisted' : 'Add to Wishlist'}</span>
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -621,48 +717,100 @@ export const ComponentDetails = () => {
                     )}
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-bold text-[var(--color-text-secondary)] mb-2">Your Bid Amount (₹)</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[var(--color-text-secondary)] text-xl">₹</span>
-                      <input 
-                        type="number" 
-                        value={bidAmount}
-                        onChange={(e) => setBidAmount(e.target.value)}
-                        className="w-full bg-[var(--color-background)] border-2 border-[var(--color-border)] rounded-xl py-4 pl-12 pr-4 font-black text-2xl focus:border-[var(--color-primary)] focus:outline-none transition-colors shadow-inner"
-                        placeholder={(highestBid + 10).toString()}
-                        min={highestBid + 10}
-                      />
+                  {isAuctionOwner ? (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center space-y-2">
+                      <div className="flex items-center justify-center gap-1.5 text-amber-700 dark:text-amber-400 font-black text-sm">
+                        <span className="material-symbols-outlined text-[20px]">workspace_premium</span>
+                        <span>You are the Auction Owner</span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                        You are monitoring your live auction. Whenever a student places a higher bid, the price instantly updates here, and you receive real-time notifications and an inbox update!
+                      </p>
+                      <button 
+                        onClick={() => navigate('/inbox')}
+                        className="btn-primary w-full py-2.5 text-xs font-bold mt-2 flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">chat</span>
+                        <span>Go to Inbox</span>
+                      </button>
                     </div>
-                    <p className="text-xs font-medium text-[var(--color-text-secondary)] mt-2 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[16px]">info</span>
-                      Minimum bid increment is ₹10
-                    </p>
-                  </div>
-                  
-                  <button 
-                    onClick={async () => {
-                      const amount = parseInt(bidAmount, 10);
-                      if (amount > highestBid) {
-                        try {
-                          const res = await apiClient.post(`/components/${currentProduct.id}/bids`, { amount });
-                          setHighestBid(amount);
-                          setBidSuccess(true);
-                          setBidHistory([res.data, ...bidHistory]); // Add new bid to history
-                        } catch (err) {
-                          alert("Failed to place bid. Please try again.");
-                        }
-                      } else {
-                        alert(`Bid must be higher than current highest bid (₹${highestBid})`);
-                      }
-                    }}
-                    className="btn-auction w-full py-4 text-xl mt-2 shadow-lg"
-                  >
-                    Place Bid
-                  </button>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-sm font-bold text-[var(--color-text-secondary)] mb-2">Your Bid Amount (₹)</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-[var(--color-text-secondary)] text-xl">₹</span>
+                          <input 
+                            type="number" 
+                            value={bidAmount}
+                            onChange={(e) => setBidAmount(e.target.value)}
+                            className="w-full bg-[var(--color-background)] border-2 border-[var(--color-border)] rounded-xl py-4 pl-12 pr-4 font-black text-2xl focus:border-[var(--color-primary)] focus:outline-none transition-colors shadow-inner"
+                            placeholder={(highestBid + 10).toString()}
+                            min={highestBid + 10}
+                          />
+                        </div>
+                        <p className="text-xs font-medium text-[var(--color-text-secondary)] mt-2 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[16px]">info</span>
+                          Minimum bid increment is ₹10
+                        </p>
+                      </div>
+                      
+                      <button 
+                        onClick={async () => {
+                          const amount = parseInt(bidAmount, 10);
+                          if (amount > highestBid) {
+                            try {
+                              const res = await apiClient.post(`/components/${currentProduct.id}/bids`, { amount });
+                              setHighestBid(amount);
+                              setBidSuccess(true);
+                              setBidHistory([res.data, ...bidHistory]); // Add new bid to history
+                              setCurrentProduct(prev => prev ? { ...prev, price: amount } : prev);
+                            } catch (err) {
+                              alert(err.response?.data?.error || "Failed to place bid. Please try again.");
+                            }
+                          } else {
+                            alert(`Bid must be higher than current highest bid (₹${highestBid})`);
+                          }
+                        }}
+                        className="btn-auction w-full py-4 text-xl mt-2 shadow-lg"
+                      >
+                        Place Bid
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Added to Cart Toast Notification */}
+      {addedToast && (
+        <div className="fixed top-20 right-4 sm:right-8 z-[9999] w-[92vw] max-w-md bg-[var(--color-surface)] border-2 border-[var(--color-primary)] rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)] text-white flex items-center justify-center shrink-0 shadow-md">
+              <span className="material-symbols-outlined text-[22px]">check</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[var(--color-text-primary)]">Added to Cart!</p>
+              <p className="text-xs text-[var(--color-text-secondary)] truncate max-w-[200px]">{currentProduct.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate('/cart')}
+              className="btn-primary py-2 px-3.5 text-xs font-bold shadow-sm whitespace-nowrap"
+            >
+              View Cart
+            </button>
+            <button
+              onClick={() => setAddedToast(false)}
+              className="p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors rounded-lg hover:bg-[var(--color-background)]"
+              title="Close"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
           </div>
         </div>
       )}

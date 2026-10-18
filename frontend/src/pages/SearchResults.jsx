@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PRODUCTS } from '../data/products';
 import { BottomNav } from '../components/BottomNav';
 import apiClient from '../api/client';
 import { getWishlist, toggleWishlist } from '../utils/wishlistStorage';
+import { addToCart, getCartCount } from '../utils/cartStorage';
 import { getSellerName, getProductDatePosted } from '../utils/productUtils';
 
 export const SearchResults = () => {
@@ -15,16 +15,25 @@ export const SearchResults = () => {
   const categoryFilter = queryParams.get('category') || '';
   const typeFilter = queryParams.get('type') || ''; // 'recent' or 'auction'
 
-  const [allProducts, setAllProducts] = useState(PRODUCTS);
+  const [allProducts, setAllProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [wishlistIds, setWishlistIds] = useState(() => getWishlist().map(item => item.id));
+  const [cartCount, setCartCount] = useState(() => getCartCount());
+  const [toastProduct, setToastProduct] = useState(null);
 
   useEffect(() => {
     const handleWishlistUpdate = () => {
       setWishlistIds(getWishlist().map(item => item.id));
     };
+    const handleCartUpdate = () => {
+      setCartCount(getCartCount());
+    };
     window.addEventListener('wishlistUpdate', handleWishlistUpdate);
-    return () => window.removeEventListener('wishlistUpdate', handleWishlistUpdate);
+    window.addEventListener('cartUpdate', handleCartUpdate);
+    return () => {
+      window.removeEventListener('wishlistUpdate', handleWishlistUpdate);
+      window.removeEventListener('cartUpdate', handleCartUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -54,7 +63,7 @@ export const SearchResults = () => {
           image: comp.image_url || (comp.images?.length > 0 ? comp.images[0] : (comp.image || 'https://picsum.photos/800/800?random=99'))
         }));
         
-        setAllProducts([...mappedComponents, ...PRODUCTS]);
+        setAllProducts(mappedComponents);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -111,11 +120,26 @@ export const SearchResults = () => {
     <div className="bg-[var(--color-background)] text-[var(--color-text-primary)] font-sans min-h-screen pb-24 relative">
       {/* Header */}
       <header className="bg-[var(--color-surface)] sticky top-0 z-50 w-full border-b border-[var(--color-border)] shadow-sm">
-        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-[var(--color-background)] rounded-full transition-colors active:scale-95">
-            <span className="material-symbols-outlined text-[var(--color-text-primary)]">arrow_back</span>
-          </button>
-          <h1 className="text-xl font-bold text-[var(--color-text-primary)] tracking-tight line-clamp-1">{getPageTitle()}</h1>
+        <div className="w-full max-w-[94vw] 2xl:max-w-[1550px] mx-auto px-3 md:px-[22px] h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate(-1)} className="p-2 hover:bg-[var(--color-background)] rounded-full transition-colors active:scale-95" title="Go back">
+              <span className="material-symbols-outlined text-[var(--color-text-primary)]">arrow_back</span>
+            </button>
+            <h1 className="text-xl font-bold text-[var(--color-text-primary)] tracking-tight truncate">{getPageTitle()}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="btn-icon" onClick={() => navigate('/wishlist')} title="Wishlist">
+              <span className="material-symbols-outlined text-[var(--color-danger)]">favorite</span>
+            </button>
+            <button className="btn-icon relative" onClick={() => navigate('/cart')} title="Shopping Cart">
+              <span className="material-symbols-outlined text-[var(--color-primary)]">shopping_cart</span>
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[var(--color-primary)] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full border-2 border-[var(--color-surface)] animate-in zoom-in">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -160,7 +184,13 @@ export const SearchResults = () => {
                   <div className="absolute top-0 left-0 w-full h-1 bg-[var(--color-primary)] z-20"></div>
                   <div className="w-full aspect-square md:aspect-[4/3] bg-[var(--color-background)] relative overflow-hidden flex items-center justify-center border-b border-[var(--color-border)]">
                     {product.images && product.images.length > 0 ? (
-                      <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img 
+                        src={product.images[0]} 
+                        alt={product.name} 
+                        loading="lazy" 
+                        decoding="async" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
                     ) : (
                       <span className="material-symbols-outlined text-[64px] text-[var(--color-border)] group-hover:scale-110 transition-transform duration-500">memory</span>
                     )}
@@ -229,7 +259,13 @@ export const SearchResults = () => {
                 >
                   <div className="w-full aspect-square md:aspect-[4/3] bg-[var(--color-background)] relative overflow-hidden flex items-center justify-center border-b border-[var(--color-border)]">
                     {product.images && product.images.length > 0 ? (
-                      <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img 
+                        src={product.images[0]} 
+                        alt={product.name} 
+                        loading="lazy" 
+                        decoding="async" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
                     ) : (
                       <span className="material-symbols-outlined text-[64px] text-[var(--color-border)] group-hover:scale-110 transition-transform duration-500">memory</span>
                     )}
@@ -270,11 +306,25 @@ export const SearchResults = () => {
                       </div>
                     </div>
                     <h3 className="text-base md:text-lg font-bold text-[var(--color-text-primary)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">{product.name}</h3>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)] leading-none">{product.price}</span>
-                      {product.originalPrice && (
-                        <span className="text-sm text-[var(--color-text-secondary)] line-through leading-none font-medium">{product.originalPrice}</span>
-                      )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xl md:text-2xl font-bold text-[var(--color-text-primary)] leading-none">{product.price}</span>
+                        {product.originalPrice && (
+                          <span className="text-sm text-[var(--color-text-secondary)] line-through leading-none font-medium">{product.originalPrice}</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(product, 1);
+                          setToastProduct(product);
+                          setTimeout(() => setToastProduct(null), 4000);
+                        }}
+                        className="w-8 h-8 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)] hover:text-white flex items-center justify-center transition-all active:scale-95 shadow-sm"
+                        title="Add to Cart"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                      </button>
                     </div>
                     {/* Seller Name & College */}
                     <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)] pt-2.5 mt-auto border-t border-[var(--color-border)] font-medium">
@@ -294,6 +344,36 @@ export const SearchResults = () => {
           </div>
         )}
       </main>
+
+      {/* Added to Cart Toast Notification */}
+      {toastProduct && (
+        <div className="fixed top-20 right-4 sm:right-8 z-[9999] w-[92vw] max-w-md bg-[var(--color-surface)] border-2 border-[var(--color-primary)] rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)] text-white flex items-center justify-center shrink-0 shadow-md">
+              <span className="material-symbols-outlined text-[22px]">check</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[var(--color-text-primary)]">Added to Cart!</p>
+              <p className="text-xs text-[var(--color-text-secondary)] truncate max-w-[200px]">{toastProduct.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate('/cart')}
+              className="btn-primary py-2 px-3.5 text-xs font-bold shadow-sm whitespace-nowrap"
+            >
+              View Cart
+            </button>
+            <button
+              onClick={() => setToastProduct(null)}
+              className="p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors rounded-lg hover:bg-[var(--color-background)]"
+              title="Close"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

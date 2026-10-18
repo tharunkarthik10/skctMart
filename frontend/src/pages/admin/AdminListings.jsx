@@ -94,10 +94,10 @@ export const AdminListings = () => {
             <thead>
               <tr className="bg-[var(--color-background)] border-b border-[var(--color-border)] text-xs font-bold uppercase text-[var(--color-text-secondary)] tracking-wider">
                 <th className="py-4 px-6">Component</th>
-                <th className="py-4 px-6">Category</th>
-                <th className="py-4 px-6">Status</th>
-                <th className="py-4 px-6">Date Listed</th>
-                <th className="py-4 px-6 text-right">Actions</th>
+                <th className="py-4 px-6 whitespace-nowrap">Category</th>
+                <th className="py-4 px-6 whitespace-nowrap">Status</th>
+                <th className="py-4 px-6 whitespace-nowrap">Date Listed</th>
+                <th className="py-4 px-6 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -127,26 +127,26 @@ export const AdminListings = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 px-6 text-sm font-semibold text-[var(--color-text-primary)]">
-                    <span className="bg-[var(--color-background)] px-3 py-1.5 rounded-md border border-[var(--color-border)] shadow-sm">
+                  <td className="py-4 px-6 text-sm font-semibold text-[var(--color-text-primary)] whitespace-nowrap">
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] shadow-sm text-xs font-bold text-[var(--color-text-primary)] whitespace-nowrap">
                       {comp.category}
                     </span>
                   </td>
-                  <td className="py-4 px-6">
+                  <td className="py-4 px-6 whitespace-nowrap">
                     {comp.status === 'ARCHIVED' ? (
-                      <span className="text-[var(--color-danger)] font-bold text-sm flex items-center gap-1.5 bg-[var(--color-danger)]/10 w-fit px-3 py-1 rounded-full border border-[var(--color-danger)]/20 shadow-sm">
+                      <span className="text-[var(--color-danger)] font-bold text-sm inline-flex items-center gap-1.5 bg-[var(--color-danger)]/10 px-3 py-1 rounded-full border border-[var(--color-danger)]/20 shadow-sm whitespace-nowrap">
                         <span className="material-symbols-outlined text-[16px]">inventory_2</span> Archived
                       </span>
                     ) : (
-                      <span className="text-[var(--color-primary)] font-bold text-sm flex items-center gap-1.5 bg-[var(--color-primary)]/10 w-fit px-3 py-1 rounded-full border border-[var(--color-primary)]/20 shadow-sm">
+                      <span className="text-[var(--color-primary)] font-bold text-sm inline-flex items-center gap-1.5 bg-[var(--color-primary)]/10 px-3 py-1 rounded-full border border-[var(--color-primary)]/20 shadow-sm whitespace-nowrap">
                         <span className="material-symbols-outlined text-[16px]">public</span> {comp.status || 'Active'}
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6 text-sm font-semibold text-[var(--color-text-secondary)]">
+                  <td className="py-4 px-6 text-sm font-semibold text-[var(--color-text-secondary)] whitespace-nowrap">
                     {new Date(comp.created_at).toLocaleDateString()}
                   </td>
-                  <td className="py-4 px-6 text-right">
+                  <td className="py-4 px-6 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end gap-3">
                       {comp.status !== 'ARCHIVED' && (
                         <button 

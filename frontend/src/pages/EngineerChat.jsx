@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import apiClient from '../api/client';
 import { realtimeService } from '../services/realtimeService';
 import { isProfileComplete } from '../utils/profileUtils';
+import { compressImage } from '../utils/imageCompressor';
 import EmojiPicker from 'emoji-picker-react';
 
 export const EngineerChat = () => {
@@ -55,29 +56,52 @@ export const EngineerChat = () => {
     
     setUploadingImage(true);
     try {
-      // 1. Get presigned URL
-      const presignRes = await apiClient.post('/upload/presigned-url', { prefix: 'chat' });
-      const { uploadUrl, publicUrl } = presignRes.data;
+      // Automatically compress image before upload
+      let compressed;
+      try {
+        compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+      } catch (cErr) {
+        console.warn('Compression fallback in engineer chat:', cErr);
+      }
 
-      // 2. Upload file directly to R2
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type || 'image/webp'
+      const fileToUpload = compressed?.file || file;
+      let finalContent = null;
+
+      try {
+        // 1. Get presigned URL
+        const presignRes = await apiClient.post('/upload/presigned-url', { prefix: 'chat' });
+        const { uploadUrl, publicUrl } = presignRes.data;
+
+        // 2. Upload file directly to R2
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: fileToUpload,
+          headers: {
+            'Content-Type': fileToUpload.type || 'image/webp'
+          }
+        });
+
+        if (uploadRes.ok) {
+          finalContent = publicUrl;
         }
-      });
+      } catch (uploadErr) {
+        console.warn("R2 presigned upload unavailable, using optimized data URL:", uploadErr);
+      }
+
+      if (!finalContent) {
+        finalContent = compressed?.dataUrl;
+      }
+
+      if (!finalContent) {
+        throw new Error("Could not process image attachment.");
+      }
       
       const receiverId = chatInfo.buyer_id === currentUserId ? chatInfo.seller_id : chatInfo.buyer_id;
-      try {
-        await apiClient.post('/messages', {
-          chat_id: chatId,
-          receiver_id: receiverId,
-          content: publicUrl
-        });
-      } catch (err) {
-        throw err;
-      }
+      await apiClient.post('/messages', {
+        chat_id: chatId,
+        receiver_id: receiverId,
+        content: finalContent
+      });
     } catch (err) {
       console.error(err);
       alert('Failed to upload image.');

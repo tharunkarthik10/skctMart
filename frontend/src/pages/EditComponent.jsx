@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import apiClient from '../api/client';
+import { compressImage } from '../utils/imageCompressor';
 
 export const EditComponent = () => {
   const { id } = useParams();
@@ -66,13 +67,27 @@ export const EditComponent = () => {
     fetchComponent();
   }, [id, navigate]);
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     if (e.target.files) {
-      const newImages = Array.from(e.target.files).map((file) => ({
-        file,
-        previewUrl: URL.createObjectURL(file)
-      }));
-      setImages((prev) => [...prev, ...newImages]);
+      const files = Array.from(e.target.files);
+      const compressedList = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+            return {
+              file: compressed.file,
+              previewUrl: compressed.dataUrl
+            };
+          } catch (err) {
+            console.warn('Image compression fallback:', err);
+            return {
+              file,
+              previewUrl: URL.createObjectURL(file)
+            };
+          }
+        })
+      );
+      setImages((prev) => [...prev, ...compressedList]);
     }
   };
 
@@ -97,24 +112,50 @@ export const EditComponent = () => {
         return;
       }
 
-      // Upload new images to Cloudflare R2
+      // Upload new images to Cloudflare R2 (or fallback to compressed data URL)
       const uploadedImageUrls = [...existingImages];
 
       for (const img of images) {
-        // 1. Get presigned URL
-        const presignRes = await apiClient.post('/upload/presigned-url', { prefix: 'components' });
-        const { uploadUrl, publicUrl } = presignRes.data;
+        let uploadedUrl = null;
 
-        // 2. Upload file directly to R2
-        await fetch(uploadUrl, {
-          method: 'PUT',
-          body: img.file,
-          headers: {
-            'Content-Type': img.file.type || 'image/webp'
+        // Ensure image is compressed
+        let compressed;
+        try {
+          compressed = await compressImage(img.file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+        } catch (compErr) {
+          console.warn("Compression warning:", compErr);
+        }
+
+        const fileToUpload = compressed?.file || img.file;
+
+        try {
+          // 1. Get presigned URL
+          const presignRes = await apiClient.post('/upload/presigned-url', { prefix: 'components' });
+          const { uploadUrl, publicUrl } = presignRes.data;
+
+          // 2. Upload file directly to R2
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: fileToUpload,
+            headers: {
+              'Content-Type': fileToUpload.type || 'image/webp'
+            }
+          });
+          
+          if (uploadRes.ok) {
+            uploadedUrl = publicUrl;
           }
-        });
-        
-        uploadedImageUrls.push(publicUrl);
+        } catch (uploadErr) {
+          console.warn("R2 presigned upload unavailable, using optimized data URL:", uploadErr);
+        }
+
+        if (!uploadedUrl) {
+          uploadedUrl = compressed?.dataUrl || img.previewUrl;
+        }
+
+        if (uploadedUrl) {
+          uploadedImageUrls.push(uploadedUrl);
+        }
       }
 
       // Update in Express backend

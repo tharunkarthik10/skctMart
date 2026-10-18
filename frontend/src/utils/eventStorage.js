@@ -13,6 +13,8 @@ export const getRegisteredEvents = () => {
           type: 'hackathon',
           title: "Campus Hackathon '26",
           date: 'Oct 15, 2026',
+          college: 'PSG College of Technology, Coimbatore',
+          department: 'Dept. of Information Technology',
           venue: 'Convention Center & Online',
           registeredAt: new Date().toISOString(),
           status: 'Confirmed'
@@ -23,7 +25,9 @@ export const getRegisteredEvents = () => {
           type: 'workshop',
           title: 'ROS 2 & Robotics Workshop',
           date: 'Dec 12, 2026',
-          venue: 'Hardware Lab 3',
+          college: 'Indian Institute of Technology (IIT) Madras',
+          department: 'Centre for Battery Engineering & Robotics',
+          venue: 'Hardware Lab 3, Research Park',
           registeredAt: new Date().toISOString(),
           status: 'Confirmed'
         }
@@ -66,4 +70,9 @@ export const cancelRegistration = (regId) => {
 export const isEventRegistered = (eventId) => {
   const list = getRegisteredEvents();
   return list.some(e => e.id === eventId);
+};
+
+export const getRegistrationById = (eventId) => {
+  const list = getRegisteredEvents();
+  return list.find(e => e.id === eventId) || null;
 };

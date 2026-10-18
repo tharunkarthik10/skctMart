@@ -77,6 +77,7 @@ export const placeBid = async (req, res, next) => {
         const bid = await ComponentService.placeBid(req.params.id, req.user.id, amount);
         res.status(201).json(bid);
     } catch (error) {
-        next(error);
+        res.status(400).json({ error: error.message || 'Failed to place bid' });
     }
 };
+

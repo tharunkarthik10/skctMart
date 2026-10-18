@@ -4,19 +4,34 @@ import { supabase } from '../supabaseClient';
 import apiClient from '../api/client';
 import { BottomNav } from '../components/BottomNav';
 import { isProfileComplete } from '../utils/profileUtils';
+import { compressImage } from '../utils/imageCompressor';
 
 export const ListComponent = () => {
   const navigate = useNavigate();
   const [images, setImages] = useState([]);
   const [isPosting, setIsPosting] = useState(false);
   
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     if (e.target.files) {
-      const newImages = Array.from(e.target.files).map((file) => ({
-        file,
-        previewUrl: URL.createObjectURL(file)
-      }));
-      setImages((prev) => [...prev, ...newImages]);
+      const files = Array.from(e.target.files);
+      const compressedList = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+            return {
+              file: compressed.file,
+              previewUrl: compressed.dataUrl
+            };
+          } catch (err) {
+            console.warn('Image compression fallback:', err);
+            return {
+              file,
+              previewUrl: URL.createObjectURL(file)
+            };
+          }
+        })
+      );
+      setImages((prev) => [...prev, ...compressedList]);
     }
   };
 
@@ -77,15 +92,25 @@ export const ListComponent = () => {
       for (const img of images) {
         let uploadedUrl = null;
         
+        // Ensure image is compressed
+        let compressed;
+        try {
+          compressed = await compressImage(img.file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 });
+        } catch (compErr) {
+          console.warn("Compression warning:", compErr);
+        }
+
+        const fileToUpload = compressed?.file || img.file;
+
         try {
           const presignRes = await apiClient.post('/upload/presigned-url', { prefix: 'components' });
           const { uploadUrl, publicUrl } = presignRes.data;
 
           const uploadRes = await fetch(uploadUrl, {
             method: 'PUT',
-            body: img.file,
+            body: fileToUpload,
             headers: {
-              'Content-Type': img.file.type || 'image/webp'
+              'Content-Type': fileToUpload.type || 'image/webp'
             }
           });
           
@@ -93,42 +118,12 @@ export const ListComponent = () => {
             uploadedUrl = publicUrl;
           }
         } catch (uploadErr) {
-          console.warn("R2 presigned upload unavailable, converting file locally:", uploadErr);
+          console.warn("R2 presigned upload unavailable, using optimized data URL:", uploadErr);
         }
 
-        // Compress and convert file to web-optimized data URL so exact image is saved
-        if (!uploadedUrl && img.file) {
-          uploadedUrl = await new Promise((resolve) => {
-            const image = new Image();
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              image.src = e.target.result;
-            };
-            image.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_SIZE = 1000;
-              let width = image.width;
-              let height = image.height;
-              if (width > height) {
-                if (width > MAX_SIZE) {
-                  height = Math.round((height * MAX_SIZE) / width);
-                  width = MAX_SIZE;
-                }
-              } else {
-                if (height > MAX_SIZE) {
-                  width = Math.round((width * MAX_SIZE) / height);
-                  height = MAX_SIZE;
-                }
-              }
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(image, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
-            };
-            image.onerror = () => resolve(null);
-            reader.readAsDataURL(img.file);
-          });
+        // Fast web-optimized data URL fallback if R2 is not configured
+        if (!uploadedUrl) {
+          uploadedUrl = compressed?.dataUrl || img.previewUrl;
         }
 
         if (uploadedUrl) {

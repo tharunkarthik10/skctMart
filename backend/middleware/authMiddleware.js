@@ -59,6 +59,16 @@ export const authMiddleware = async (req, res, next) => {
             }
         }
 
+        // Check if user is blocked in database
+        try {
+            const dbUser = await UserService.getUserById(user.id);
+            if (dbUser?.is_blocked) {
+                return res.status(403).json({ error: 'Your account has been blocked by the admin from accessing MakerMart products and services.' });
+            }
+        } catch (checkErr) {
+            console.error('Error checking blocked status:', checkErr);
+        }
+
         next();
     } catch (err) {
         console.error('Auth Middleware Exception:', err);

@@ -11,5 +11,6 @@ router.put('/:id', authMiddleware, UserController.updateUser);
 router.post('/:id/request-edit', authMiddleware, UserController.requestEditAccess);
 router.post('/:id/approve-edit', authMiddleware, UserController.approveEditAccess);
 router.post('/:id/reject-edit', authMiddleware, UserController.rejectEditAccess);
+router.post('/block-by-email', authMiddleware, UserController.blockUserByEmail);
 
 export default router;
